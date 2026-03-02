@@ -1,4 +1,17 @@
 import "./globals.css";
+import { Sora, Space_Mono } from "next/font/google";
+
+const sora = Sora({
+  subsets: ["latin"],
+  variable: "--font-sora",
+  weight: ["400", "500", "600", "700"],
+});
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "700"],
+});
 
 export const metadata = {
   metadataBase: new URL("https://nerts-phi.vercel.app"),
@@ -24,13 +37,13 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#8d3f0f",
+  themeColor: "#0d1f35",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${sora.variable} ${spaceMono.variable}`}>{children}</body>
     </html>
   );
 }

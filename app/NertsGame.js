@@ -525,9 +525,11 @@ function FoundationGrid({ foundations, suits, compact = false, onCellClick, sele
         margin: compact ? "8px auto 10px" : "10px auto 14px",
         width: compact ? "min(540px, 98vw)" : "min(560px, 94vw)",
         padding: compact ? "6px" : "8px",
-        background: "rgba(255,255,255,0.16)",
-        borderRadius: 4,
-        border: "1px solid rgba(255,255,255,0.2)",
+        background: "rgba(8,22,38,0.56)",
+        borderRadius: 12,
+        border: "1px solid rgba(172,210,248,0.24)",
+        boxShadow: "0 10px 24px rgba(2,14,20,0.28)",
+        backdropFilter: "blur(4px)",
       }}
     >
       {Array.from({ length: PLAYERS.length }).map((_, rowIdx) => (
@@ -554,11 +556,11 @@ function FoundationGrid({ foundations, suits, compact = false, onCellClick, sele
                       ? "2px solid rgba(125, 186, 255, 0.95)"
                       : selectedCard
                         ? "1px solid rgba(90, 146, 255, 0.6)"
-                        : "1px solid rgba(255,255,255,0.2)",
-                  background: activeSuit === suit.key ? "rgba(120, 183, 255, 0.22)" : "rgba(255,255,255,0.08)",
+                        : "1px solid rgba(172,210,248,0.24)",
+                  background: activeSuit === suit.key ? "rgba(120, 183, 255, 0.22)" : "rgba(13,31,53,0.58)",
                   color: suit.inkColor || (suit.stackColor === "red" ? "#cf3030" : "#3a2010"),
                   fontSize: compact ? 20 : 26,
-                  borderRadius: 3,
+                  borderRadius: 8,
                   cursor: selectedCard ? "pointer" : "default",
                   display: "flex",
                   alignItems: "center",
@@ -604,10 +606,11 @@ function getHumanSelectedCard(human, selected) {
 const woodBackground = {
   minHeight: "100vh",
   color: "#ffffff",
-  fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif",
+  fontFamily: "var(--font-sora), 'Avenir Next', 'Trebuchet MS', sans-serif",
   backgroundImage:
-    "radial-gradient(1100px 600px at 12% -8%, rgba(82, 172, 255, 0.28), transparent 58%), radial-gradient(900px 540px at 88% -16%, rgba(37, 206, 178, 0.2), transparent 56%), linear-gradient(160deg, #0b1220 0%, #121d33 46%, #1a2b42 100%)",
+    "radial-gradient(1300px 760px at 6% -12%, rgba(84, 205, 195, 0.28), transparent 58%), radial-gradient(1100px 680px at 96% -14%, rgba(91, 156, 255, 0.24), transparent 60%), linear-gradient(160deg, #071425 0%, #0d1f35 46%, #123056 100%)",
   backgroundColor: "#0b1220",
+  animation: "screen-in 280ms ease-out",
 };
 
 export default function NertsGame() {
@@ -2091,15 +2094,17 @@ export default function NertsGame() {
   if (screen === "menu") {
     return (
       <div style={{ ...woodBackground, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-        <div style={{ width: "min(420px, 94vw)", textAlign: "center" }}>
+        <div style={{ width: "min(460px, 94vw)", textAlign: "center" }}>
           <h1
             style={{
-              margin: "0 0 20px",
-              fontSize: "clamp(54px, 15vw, 96px)",
-              letterSpacing: 2,
+              margin: "0 0 24px",
+              fontSize: "clamp(52px, 13vw, 90px)",
+              letterSpacing: 3,
               lineHeight: 1,
               color: "#fff",
-              textShadow: "4px 4px 0 rgba(0,0,0,0.45)",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              textShadow: "0 10px 30px rgba(5,15,30,0.42)",
             }}
           >
             NERTZ
@@ -2115,13 +2120,14 @@ export default function NertsGame() {
                   resumeSavedSession();
                 }}
                 style={{
-                  height: isPhone ? 48 : 52,
-                  fontSize: isPhone ? 24 : 30,
+                  height: isPhone ? 48 : 54,
+                  fontSize: isPhone ? 22 : 24,
                   lineHeight: 1,
                   color: "#ffffff",
                   background: "rgba(31,130,89,0.9)",
                   border: "none",
-                  borderRadius: 0,
+                  borderRadius: 14,
+                  boxShadow: "0 10px 22px rgba(2,14,20,0.34)",
                   cursor: "pointer",
                   touchAction: "manipulation",
                 }}
@@ -2136,17 +2142,18 @@ export default function NertsGame() {
                 playSfx("tap");
                 setScreen("levels");
               }}
-              style={{
-                height: isPhone ? 52 : 58,
-                fontSize: isPhone ? 34 : 42,
-                lineHeight: 1,
-                color: "#e9f1ff",
-                background: "rgba(108,157,226,0.86)",
-                border: "none",
-                borderRadius: 0,
-                cursor: "pointer",
-                touchAction: "manipulation",
-              }}
+                style={{
+                  height: isPhone ? 52 : 58,
+                  fontSize: isPhone ? 30 : 32,
+                  lineHeight: 1,
+                  color: "#e9f1ff",
+                  background: "rgba(24,182,156,0.88)",
+                  border: "none",
+                  borderRadius: 14,
+                  boxShadow: "0 10px 24px rgba(2,14,20,0.36)",
+                  cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
             >
               Play
             </button>
@@ -2157,17 +2164,18 @@ export default function NertsGame() {
                 playSfx("tap");
                 setShowRules(true);
               }}
-              style={{
-                height: isPhone ? 52 : 58,
-                fontSize: isPhone ? 34 : 42,
-                lineHeight: 1,
-                color: "#ffffff",
-                background: "rgba(55,24,7,0.7)",
-                border: "none",
-                borderRadius: 0,
-                cursor: "pointer",
-                touchAction: "manipulation",
-              }}
+                style={{
+                  height: isPhone ? 52 : 58,
+                  fontSize: isPhone ? 28 : 30,
+                  lineHeight: 1,
+                  color: "#ffffff",
+                  background: "rgba(10,26,44,0.76)",
+                  border: "none",
+                  borderRadius: 14,
+                  boxShadow: "0 10px 24px rgba(2,14,20,0.34)",
+                  cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
             >
               How To Play
             </button>
@@ -2178,17 +2186,18 @@ export default function NertsGame() {
                 playSfx("tap");
                 setScreen("achievements");
               }}
-              style={{
-                height: isPhone ? 52 : 58,
-                fontSize: isPhone ? 34 : 42,
-                lineHeight: 1,
-                color: "#ffffff",
-                background: "rgba(55,24,7,0.7)",
-                border: "none",
-                borderRadius: 0,
-                cursor: "pointer",
-                touchAction: "manipulation",
-              }}
+                style={{
+                  height: isPhone ? 52 : 58,
+                  fontSize: isPhone ? 28 : 30,
+                  lineHeight: 1,
+                  color: "#ffffff",
+                  background: "rgba(10,26,44,0.76)",
+                  border: "none",
+                  borderRadius: 14,
+                  boxShadow: "0 10px 24px rgba(2,14,20,0.34)",
+                  cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
               >
                 Achievements
               </button>
@@ -2209,8 +2218,9 @@ export default function NertsGame() {
                 height: 32,
                 fontSize: isPhone ? 12 : 13,
                 color: "#fff",
-                background: "rgba(0,0,0,0.24)",
+                background: "rgba(6,15,28,0.34)",
                 border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: 10,
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -2222,10 +2232,12 @@ export default function NertsGame() {
           <div
             style={{
               marginTop: 10,
-              padding: isPhone ? 8 : 10,
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 6,
+              padding: isPhone ? 10 : 12,
+              background: "rgba(8,22,38,0.58)",
+              border: "1px solid rgba(172,210,248,0.24)",
+              borderRadius: 14,
+              boxShadow: "0 12px 24px rgba(2,14,20,0.28)",
+              backdropFilter: "blur(4px)",
               display: "grid",
               gap: 6,
             }}
@@ -2241,7 +2253,7 @@ export default function NertsGame() {
                   fontSize: isPhone ? 13 : 14,
                   color: "#fff",
                   border: "1px solid rgba(255,255,255,0.35)",
-                  background: audioSettings.sfxEnabled ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                  background: audioSettings.sfxEnabled ? "rgba(24,182,156,0.92)" : "rgba(10,26,44,0.78)",
                   cursor: "pointer",
                   touchAction: "manipulation",
                 }}
@@ -2257,7 +2269,7 @@ export default function NertsGame() {
                   fontSize: isPhone ? 13 : 14,
                   color: "#fff",
                   border: "1px solid rgba(255,255,255,0.35)",
-                  background: audioSettings.musicEnabled ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                  background: audioSettings.musicEnabled ? "rgba(24,182,156,0.92)" : "rgba(10,26,44,0.78)",
                   cursor: "pointer",
                   touchAction: "manipulation",
                 }}
@@ -2273,7 +2285,7 @@ export default function NertsGame() {
                 fontSize: isPhone ? 13 : 14,
                 color: "#fff",
                 border: "1px solid rgba(255,255,255,0.35)",
-                background: audioSettings.hapticsEnabled ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                background: audioSettings.hapticsEnabled ? "rgba(24,182,156,0.92)" : "rgba(10,26,44,0.78)",
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -2289,7 +2301,7 @@ export default function NertsGame() {
                 step="1"
                 value={Math.round(clamp01(audioSettings.sfxVolume, DEFAULT_AUDIO_SETTINGS.sfxVolume) * 100)}
                 onChange={updateSfxVolume}
-                style={{ width: "100%", accentColor: "#6c9de2" }}
+                style={{ width: "100%", accentColor: "#18b69c" }}
               />
             </label>
             <label style={{ fontSize: isPhone ? 11 : 12, opacity: 0.9, display: "grid", gap: 4 }}>
@@ -2301,7 +2313,7 @@ export default function NertsGame() {
                 step="1"
                 value={Math.round(clamp01(audioSettings.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume) * 100)}
                 onChange={updateMusicVolume}
-                style={{ width: "100%", accentColor: "#6c9de2" }}
+                style={{ width: "100%", accentColor: "#18b69c" }}
               />
             </label>
             <div style={{ fontSize: isPhone ? 11 : 12, opacity: 0.86 }}>8-bit SFX + A Real Hero (synth fallback)</div>
@@ -2316,22 +2328,24 @@ export default function NertsGame() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.5)",
+              background: "rgba(3,9,18,0.6)",
               display: "grid",
               placeItems: "center",
               padding: 14,
+              backdropFilter: "blur(4px)",
             }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(560px, 92vw)",
-                background: "rgba(34,14,4,0.9)",
-                border: "1px solid rgba(255,255,255,0.25)",
-                borderRadius: 8,
+                background: "rgba(8,22,38,0.9)",
+                border: "1px solid rgba(172,210,248,0.24)",
+                borderRadius: 14,
                 padding: isPhone ? 14 : 18,
                 fontSize: isPhone ? 16 : 18,
                 lineHeight: 1.35,
+                boxShadow: "0 18px 36px rgba(2,14,20,0.4)",
               }}
             >
               <div style={{ fontSize: isPhone ? 24 : 28, marginBottom: 10 }}>How to play</div>
@@ -2350,7 +2364,7 @@ export default function NertsGame() {
                   marginTop: 14,
                   height: 42,
                   width: "100%",
-                  background: "rgba(108,157,226,0.9)",
+                  background: "rgba(24,182,156,0.92)",
                   color: "#fff",
                   border: "none",
                   fontSize: isPhone ? 20 : 22,
@@ -2381,8 +2395,8 @@ export default function NertsGame() {
             width: 42,
             height: 42,
             borderRadius: 22,
-            border: "2px solid rgba(255,255,255,0.7)",
-            background: "rgba(0,0,0,0.25)",
+            border: "1px solid rgba(172,210,248,0.34)",
+            background: "rgba(8,22,38,0.62)",
             color: "#fff",
             fontSize: 24,
             cursor: "pointer",
@@ -2391,16 +2405,18 @@ export default function NertsGame() {
         >
           ←
         </button>
-        <h2 style={{ margin: "-36px 0 14px", textAlign: "center", fontSize: isPhone ? 38 : 48, fontWeight: 400 }}>Achievements</h2>
+        <h2 style={{ margin: "-36px 0 14px", textAlign: "center", fontSize: isPhone ? 34 : 42, fontWeight: 600 }}>Achievements</h2>
 
         <div
           style={{
             width: "min(680px, 96vw)",
             margin: "0 auto 14px",
-            background: "rgba(255,255,255,0.15)",
-            border: "1px solid rgba(255,255,255,0.25)",
-            borderRadius: 6,
-            padding: 10,
+            background: "rgba(8,22,38,0.58)",
+            border: "1px solid rgba(172,210,248,0.24)",
+            borderRadius: 14,
+            padding: 12,
+            boxShadow: "0 12px 28px rgba(2,14,20,0.3)",
+            backdropFilter: "blur(4px)",
             display: "grid",
             gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 140 : 170}px, 1fr))`,
             gap: 8,
@@ -2433,9 +2449,9 @@ export default function NertsGame() {
                 justifyContent: "space-between",
                 gap: 12,
                 padding: "10px 12px",
-                background: item.unlocked ? "rgba(108,157,226,0.5)" : "rgba(55,24,7,0.62)",
-                border: item.unlocked ? "1px solid rgba(165, 206, 255, 0.85)" : "1px solid rgba(255,255,255,0.18)",
-                borderRadius: 4,
+                background: item.unlocked ? "rgba(24,182,156,0.34)" : "rgba(10,26,44,0.66)",
+                border: item.unlocked ? "1px solid rgba(94, 236, 215, 0.86)" : "1px solid rgba(172,210,248,0.24)",
+                borderRadius: 10,
               }}
             >
               <div>
@@ -2468,8 +2484,8 @@ export default function NertsGame() {
             width: 42,
             height: 42,
             borderRadius: 22,
-            border: "2px solid rgba(255,255,255,0.7)",
-            background: "rgba(0,0,0,0.25)",
+            border: "1px solid rgba(172,210,248,0.34)",
+            background: "rgba(8,22,38,0.62)",
             color: "#fff",
             fontSize: 24,
             cursor: "pointer",
@@ -2478,16 +2494,18 @@ export default function NertsGame() {
         >
           ←
         </button>
-        <h2 style={{ margin: "-36px 0 18px", textAlign: "center", fontSize: isPhone ? 40 : 54, fontWeight: 400 }}>Levels</h2>
+        <h2 style={{ margin: "-36px 0 18px", textAlign: "center", fontSize: isPhone ? 34 : 42, fontWeight: 600 }}>Levels</h2>
 
         <div
           style={{
             width: "min(460px, 96vw)",
             margin: "0 auto 10px",
-            padding: "10px",
-            background: "rgba(255,255,255,0.16)",
-            border: "1px solid rgba(255,255,255,0.24)",
-            borderRadius: 6,
+            padding: "12px",
+            background: "rgba(8,22,38,0.58)",
+            border: "1px solid rgba(172,210,248,0.24)",
+            borderRadius: 14,
+            boxShadow: "0 12px 28px rgba(2,14,20,0.3)",
+            backdropFilter: "blur(4px)",
             display: "grid",
             gap: 8,
           }}
@@ -2508,8 +2526,9 @@ export default function NertsGame() {
                   height: 42,
                   fontSize: isPhone ? 16 : 18,
                   color: "#fff",
-                  border: "1px solid rgba(255,255,255,0.4)",
-                  background: deckType === preset.key ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                  border: "1px solid rgba(172,210,248,0.28)",
+                  background: deckType === preset.key ? "rgba(24,182,156,0.92)" : "rgba(10,26,44,0.78)",
+                  borderRadius: 10,
                   cursor: "pointer",
                   touchAction: "manipulation",
                 }}
@@ -2531,10 +2550,12 @@ export default function NertsGame() {
                 height: isPhone ? 56 : 64,
                 textAlign: "left",
                 padding: "0 16px",
-                fontSize: isPhone ? 32 : 44,
+                fontSize: isPhone ? 28 : 36,
                 color: "#fff",
-                background: idx === 0 ? "rgba(108,157,226,0.86)" : "rgba(55,24,7,0.72)",
+                background: idx === 0 ? "rgba(24,182,156,0.88)" : "rgba(10,26,44,0.78)",
                 border: "none",
+                borderRadius: 12,
+                boxShadow: "0 10px 24px rgba(2,14,20,0.3)",
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -2557,8 +2578,8 @@ export default function NertsGame() {
             width: 42,
             height: 42,
             borderRadius: 22,
-            border: "2px solid rgba(255,255,255,0.7)",
-            background: "rgba(0,0,0,0.25)",
+            border: "1px solid rgba(172,210,248,0.34)",
+            background: "rgba(8,22,38,0.62)",
             color: "#fff",
             fontSize: 24,
             cursor: "pointer",
@@ -2567,12 +2588,12 @@ export default function NertsGame() {
         >
           ←
         </button>
-        <h2 style={{ margin: "-36px 0 20px", textAlign: "center", fontSize: isPhone ? 40 : 54, fontWeight: 400 }}>Round {roundNumber}</h2>
+        <h2 style={{ margin: "-36px 0 20px", textAlign: "center", fontSize: isPhone ? 36 : 46, fontWeight: 600 }}>Round {roundNumber}</h2>
         <div style={{ textAlign: "center", opacity: 0.92, marginBottom: 8, marginTop: -8, fontSize: isPhone ? 14 : 16 }}>
           Deck: {deckPreset.label}
         </div>
 
-        <div style={{ width: "min(470px, 96vw)", margin: "0 auto 24px", background: "rgba(255,255,255,0.2)", borderRadius: 4, padding: isPhone ? 6 : 8 }}>
+        <div style={{ width: "min(470px, 96vw)", margin: "0 auto 24px", background: "rgba(8,22,38,0.56)", borderRadius: 14, padding: isPhone ? 6 : 8, border: "1px solid rgba(172,210,248,0.24)" }}>
           {PLAYERS.map((player, idx) => (
             <div
               key={player.id}
@@ -2582,7 +2603,7 @@ export default function NertsGame() {
                 alignItems: "center",
                 height: isPhone ? 36 : 42,
                 padding: "0 10px",
-                background: idx % 2 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)",
+                background: idx % 2 ? "rgba(14,32,54,0.74)" : "rgba(17,38,63,0.78)",
                 fontSize: isPhone ? 24 : 34,
               }}
             >
@@ -2599,10 +2620,12 @@ export default function NertsGame() {
             style={{
               width: "100%",
               height: isPhone ? 58 : 66,
-              fontSize: isPhone ? 32 : 44,
+              fontSize: isPhone ? 30 : 36,
               color: "#fff",
-              background: "rgba(55,24,7,0.72)",
+              background: "rgba(10,26,44,0.78)",
               border: "none",
+              borderRadius: 12,
+              boxShadow: "0 10px 24px rgba(2,14,20,0.3)",
               cursor: "pointer",
               touchAction: "manipulation",
             }}
@@ -2621,9 +2644,9 @@ export default function NertsGame() {
 
     return (
       <div style={{ ...woodBackground, padding: isPhone ? "10px" : "14px" }}>
-        <h2 style={{ textAlign: "center", fontSize: isPhone ? 34 : 52, margin: "10px 0 8px" }}>{winnerName} wins the round</h2>
+        <h2 style={{ textAlign: "center", fontSize: isPhone ? 32 : 44, margin: "10px 0 8px", fontWeight: 600 }}>{winnerName} wins the round</h2>
 
-        <div style={{ width: "min(520px, 96vw)", margin: "0 auto", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ width: "min(520px, 96vw)", margin: "0 auto", background: "rgba(8,22,38,0.58)", border: "1px solid rgba(172,210,248,0.24)", borderRadius: 14, overflow: "hidden", boxShadow: "0 12px 28px rgba(2,14,20,0.3)" }}>
           {PLAYERS.map((player, idx) => (
             <div
               key={player.id}
@@ -2633,7 +2656,7 @@ export default function NertsGame() {
                 alignItems: "center",
                 gap: isPhone ? 5 : 8,
                 padding: isPhone ? "6px 8px" : "7px 10px",
-                background: idx % 2 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.14)",
+                background: idx % 2 ? "rgba(14,32,54,0.72)" : "rgba(17,38,63,0.78)",
                 fontSize: isPhone ? 15 : 20,
               }}
             >
@@ -2664,7 +2687,7 @@ export default function NertsGame() {
               height: 50,
               fontSize: isPhone ? 20 : 24,
               color: "#fff",
-              background: "rgba(108,157,226,0.9)",
+              background: "rgba(24,182,156,0.92)",
               border: "none",
               cursor: "pointer",
               touchAction: "manipulation",
@@ -2680,7 +2703,7 @@ export default function NertsGame() {
               height: 50,
               fontSize: isPhone ? 20 : 24,
               color: "#fff",
-              background: "rgba(55,24,7,0.72)",
+              background: "rgba(10,26,44,0.78)",
               border: "none",
               cursor: "pointer",
               touchAction: "manipulation",
@@ -2707,7 +2730,7 @@ export default function NertsGame() {
 
   return (
     <div style={{ ...woodBackground, overflow: "hidden", paddingBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: isCompact ? "flex-start" : "center", justifyContent: "space-between", flexWrap: isCompact ? "wrap" : "nowrap", rowGap: isCompact ? 6 : 0, padding: isCompact ? "8px 8px 6px" : "8px 10px", background: "rgba(0,0,0,0.22)", borderBottom: "1px solid rgba(255,255,255,0.22)" }}>
+      <div style={{ display: "flex", alignItems: isCompact ? "flex-start" : "center", justifyContent: "space-between", flexWrap: isCompact ? "wrap" : "nowrap", rowGap: isCompact ? 6 : 0, padding: isCompact ? "8px 8px 6px" : "8px 10px", background: "rgba(8,22,38,0.58)", borderBottom: "1px solid rgba(172,210,248,0.24)", boxShadow: "0 8px 20px rgba(2,14,20,0.28)", backdropFilter: "blur(4px)" }}>
         <button
           type="button"
           onClick={quitToMenu}
@@ -2715,8 +2738,8 @@ export default function NertsGame() {
             width: isCompact ? 38 : 42,
             height: isCompact ? 38 : 42,
             borderRadius: isCompact ? 19 : 22,
-            border: "2px solid rgba(255,255,255,0.7)",
-            background: "rgba(0,0,0,0.25)",
+            border: "1px solid rgba(172,210,248,0.34)",
+            background: "rgba(8,22,38,0.62)",
             color: "#fff",
             fontSize: isCompact ? 20 : 24,
             cursor: "pointer",
@@ -2748,11 +2771,11 @@ export default function NertsGame() {
               }}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: isPaused ? "rgba(31,130,89,0.9)" : "rgba(55,24,7,0.72)",
+                background: isPaused ? "rgba(31,130,89,0.9)" : "rgba(10,26,44,0.78)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -2765,11 +2788,11 @@ export default function NertsGame() {
               disabled={!undoSnapshot || isPaused}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: undoSnapshot && !isPaused ? "rgba(55,24,7,0.72)" : "rgba(0,0,0,0.24)",
+                background: undoSnapshot && !isPaused ? "rgba(10,26,44,0.78)" : "rgba(6,15,28,0.34)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: undoSnapshot && !isPaused ? "pointer" : "default",
                 touchAction: "manipulation",
               }}
@@ -2782,11 +2805,11 @@ export default function NertsGame() {
               disabled={isPaused}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: isPaused ? "rgba(0,0,0,0.24)" : "rgba(55,24,7,0.72)",
+                background: isPaused ? "rgba(6,15,28,0.34)" : "rgba(10,26,44,0.78)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: isPaused ? "default" : "pointer",
                 touchAction: "manipulation",
               }}
@@ -2799,11 +2822,11 @@ export default function NertsGame() {
               disabled={isPaused}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: isPaused ? "rgba(0,0,0,0.24)" : "rgba(108,157,226,0.85)",
+                background: isPaused ? "rgba(6,15,28,0.34)" : "rgba(24,182,156,0.86)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: isPaused ? "default" : "pointer",
                 touchAction: "manipulation",
               }}
@@ -2817,11 +2840,11 @@ export default function NertsGame() {
               onClick={toggleSfx}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: audioSettings.sfxEnabled ? "rgba(108,157,226,0.9)" : "rgba(0,0,0,0.24)",
+                background: audioSettings.sfxEnabled ? "rgba(24,182,156,0.92)" : "rgba(6,15,28,0.34)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -2833,11 +2856,11 @@ export default function NertsGame() {
               onClick={toggleMusic}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: audioSettings.musicEnabled ? "rgba(108,157,226,0.9)" : "rgba(0,0,0,0.24)",
+                background: audioSettings.musicEnabled ? "rgba(24,182,156,0.92)" : "rgba(6,15,28,0.34)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -2849,11 +2872,11 @@ export default function NertsGame() {
               onClick={toggleHaptics}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: audioSettings.hapticsEnabled ? "rgba(108,157,226,0.9)" : "rgba(0,0,0,0.24)",
+                background: audioSettings.hapticsEnabled ? "rgba(24,182,156,0.92)" : "rgba(6,15,28,0.34)",
                 color: "#fff",
                 fontSize: isCompact ? 10 : 11,
                 padding: isCompact ? "2px 5px" : "2px 6px",
-                borderRadius: 4,
+                borderRadius: 8,
                 cursor: "pointer",
                 touchAction: "manipulation",
               }}
@@ -3040,23 +3063,25 @@ export default function NertsGame() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.42)",
+            background: "rgba(3,9,18,0.62)",
             display: "grid",
             placeItems: "center",
             zIndex: 180,
             padding: 16,
+            backdropFilter: "blur(4px)",
           }}
         >
           <div
             style={{
               width: "min(320px, 90vw)",
-              background: "rgba(34,14,4,0.92)",
-              border: "1px solid rgba(255,255,255,0.26)",
-              borderRadius: 8,
+              background: "rgba(8,22,38,0.92)",
+              border: "1px solid rgba(172,210,248,0.24)",
+              borderRadius: 14,
               padding: 14,
               textAlign: "center",
               display: "grid",
               gap: 10,
+              boxShadow: "0 16px 34px rgba(2,14,20,0.4)",
             }}
           >
             <div style={{ fontSize: isPhone ? 26 : 30, lineHeight: 1 }}>Paused</div>
