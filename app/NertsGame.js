@@ -2,14 +2,38 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const SUITS = [
-  { key: "clubs", symbol: "♣", color: "black" },
-  { key: "hearts", symbol: "♥", color: "red" },
-  { key: "spades", symbol: "♠", color: "black" },
-  { key: "diamonds", symbol: "♦", color: "red" },
-];
+const STANDARD_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const DECK_PRESETS = {
+  standard: {
+    key: "standard",
+    label: "Standard",
+    subtitle: "Classic A-K face cards",
+    suits: [
+      { key: "clubs", symbol: "♣", stackColor: "black", inkColor: "#111111" },
+      { key: "hearts", symbol: "♥", stackColor: "red", inkColor: "#cc1e1e" },
+      { key: "spades", symbol: "♠", stackColor: "black", inkColor: "#111111" },
+      { key: "diamonds", symbol: "♦", stackColor: "red", inkColor: "#cc1e1e" },
+    ],
+    ranks: STANDARD_RANKS,
+  },
+  rook: {
+    key: "rook",
+    label: "Rook",
+    subtitle: "Color suits 1-14",
+    suits: [
+      { key: "red", symbol: "R", stackColor: "red", inkColor: "#d73d2a" },
+      { key: "yellow", symbol: "Y", stackColor: "red", inkColor: "#b78000" },
+      { key: "green", symbol: "G", stackColor: "black", inkColor: "#1f7a3f" },
+      { key: "black", symbol: "B", stackColor: "black", inkColor: "#111111" },
+    ],
+    ranks: Array.from({ length: 14 }, (_, idx) => String(idx + 1)),
+  },
+};
+
+function getDeckPreset(deckType) {
+  return DECK_PRESETS[deckType] || DECK_PRESETS.standard;
+}
 
 const PLAYERS = [
   { id: 0, name: "You", human: true },
@@ -83,17 +107,18 @@ function shuffle(deck) {
   return out;
 }
 
-function createDeck(deckId) {
+function createDeck(deckId, deckPreset) {
   const cards = [];
-  for (const suit of SUITS) {
-    for (let i = 0; i < RANKS.length; i += 1) {
+  for (const suit of deckPreset.suits) {
+    for (let i = 0; i < deckPreset.ranks.length; i += 1) {
       cards.push({
-        id: `${deckId}-${suit.key}-${RANKS[i]}`,
+        id: `${deckId}-${suit.key}-${deckPreset.ranks[i]}`,
         deckId,
         suit: suit.key,
         symbol: suit.symbol,
-        color: suit.color,
-        rank: RANKS[i],
+        color: suit.stackColor,
+        inkColor: suit.inkColor,
+        rank: deckPreset.ranks[i],
         value: i + 1,
       });
     }
@@ -101,8 +126,8 @@ function createDeck(deckId) {
   return cards;
 }
 
-function initPlayer(playerId) {
-  const deck = shuffle(createDeck(playerId));
+function initPlayer(playerId, deckPreset) {
+  const deck = shuffle(createDeck(playerId, deckPreset));
   const nertsPile = deck.slice(0, NERTS_SIZE);
   const work = Array.from({ length: WORK_PILES }, (_, i) => [deck[NERTS_SIZE + i]]);
   const stock = deck.slice(NERTS_SIZE + WORK_PILES);
@@ -115,19 +140,18 @@ function initPlayer(playerId) {
   };
 }
 
-function initFoundations() {
-  return {
-    clubs: [],
-    hearts: [],
-    spades: [],
-    diamonds: [],
-  };
+function initFoundations(suits) {
+  const foundations = {};
+  for (const suit of suits) {
+    foundations[suit.key] = [];
+  }
+  return foundations;
 }
 
-function initBoard() {
+function initBoard(deckPreset) {
   return {
-    players: PLAYERS.map((p) => initPlayer(p.id)),
-    foundations: initFoundations(),
+    players: PLAYERS.map((p) => initPlayer(p.id, deckPreset)),
+    foundations: initFoundations(deckPreset.suits),
   };
 }
 
@@ -142,12 +166,11 @@ function clonePlayers(players) {
 }
 
 function cloneFoundations(foundations) {
-  return {
-    clubs: foundations.clubs.map((pile) => [...pile]),
-    hearts: foundations.hearts.map((pile) => [...pile]),
-    spades: foundations.spades.map((pile) => [...pile]),
-    diamonds: foundations.diamonds.map((pile) => [...pile]),
-  };
+  const cloned = {};
+  for (const [suitKey, suitPiles] of Object.entries(foundations)) {
+    cloned[suitKey] = suitPiles.map((pile) => [...pile]);
+  }
+  return cloned;
 }
 
 function canPlayOnWork(card, pile) {
@@ -194,8 +217,8 @@ function pushToFoundation(foundations, card, target) {
 
 function countFoundationCardsForDeck(foundations, deckId) {
   let total = 0;
-  for (const suit of SUITS) {
-    for (const pile of foundations[suit.key]) {
+  for (const suitPiles of Object.values(foundations)) {
+    for (const pile of suitPiles) {
       for (const card of pile) {
         if (card.deckId === deckId) total += 1;
       }
@@ -440,7 +463,7 @@ function PlayingCard({
         borderRadius: 4,
         cursor: draggable ? "grab" : onClick ? "pointer" : "default",
         background: "#ffffff",
-        color: card.color === "red" ? "#cc1e1e" : "#111111",
+        color: card.inkColor || (card.color === "red" ? "#cc1e1e" : "#111111"),
         boxShadow: selected ? "0 0 0 3px rgba(122,179,255,0.25)" : "0 1px 6px rgba(0,0,0,0.35)",
         transform: `rotate(${rotate}deg)`,
         display: "flex",
@@ -459,7 +482,7 @@ function PlayingCard({
   );
 }
 
-function FoundationGrid({ foundations, onCellClick, selectedCard, onCellDrop, onCellDragOver, activeSuit }) {
+function FoundationGrid({ foundations, suits, onCellClick, selectedCard, onCellDrop, onCellDragOver, activeSuit }) {
   return (
     <div
       style={{
@@ -472,8 +495,8 @@ function FoundationGrid({ foundations, onCellClick, selectedCard, onCellDrop, on
       }}
     >
       {Array.from({ length: PLAYERS.length }).map((_, rowIdx) => (
-        <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: rowIdx === PLAYERS.length - 1 ? 0 : 4 }}>
-          {SUITS.map((suit) => {
+        <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: `repeat(${suits.length}, 1fr)`, gap: 4, marginBottom: rowIdx === PLAYERS.length - 1 ? 0 : 4 }}>
+          {suits.map((suit) => {
             const pile = foundations[suit.key][rowIdx];
             const top = pile?.[pile.length - 1] || null;
             return (
@@ -497,7 +520,7 @@ function FoundationGrid({ foundations, onCellClick, selectedCard, onCellDrop, on
                         ? "1px solid rgba(90, 146, 255, 0.6)"
                         : "1px solid rgba(255,255,255,0.2)",
                   background: activeSuit === suit.key ? "rgba(120, 183, 255, 0.22)" : "rgba(255,255,255,0.08)",
-                  color: suit.color === "red" ? "#cf3030" : "#3a2010",
+                  color: suit.inkColor || (suit.stackColor === "red" ? "#cf3030" : "#3a2010"),
                   fontSize: 26,
                   borderRadius: 3,
                   cursor: selectedCard ? "pointer" : "default",
@@ -553,6 +576,7 @@ const woodBackground = {
 export default function NertsGame() {
   const [screen, setScreen] = useState("menu");
   const [difficulty, setDifficulty] = useState("medium");
+  const [deckType, setDeckType] = useState("standard");
   const [roundNumber, setRoundNumber] = useState(1);
   const [scores, setScores] = useState([0, 0, 0, 0]);
   const [board, setBoard] = useState(null);
@@ -626,8 +650,10 @@ export default function NertsGame() {
     return () => clearTimeout(messageTimeoutRef.current);
   }, []);
 
+  const deckPreset = getDeckPreset(deckType);
+
   const prepareRound = useCallback((nextDifficulty, resetScores = false) => {
-    const built = initBoard();
+    const built = initBoard(deckPreset);
     boardRef.current = built;
     setBoard(built);
     setSelected(null);
@@ -651,7 +677,7 @@ export default function NertsGame() {
     }
 
     setScreen("round");
-  }, []);
+  }, [deckPreset]);
 
   const endRound = useCallback((winnerId, boardSnapshot) => {
     if (screenRef.current !== "playing") return;
@@ -1275,7 +1301,7 @@ export default function NertsGame() {
       return;
     }
 
-    const next = initBoard();
+    const next = initBoard(deckPreset);
     boardRef.current = next;
     setBoard(next);
     setRoundResult(null);
@@ -1441,7 +1467,7 @@ export default function NertsGame() {
             >
               <div style={{ fontSize: 28, marginBottom: 10 }}>How to play</div>
               <div>1. Empty your 13-card NERTS pile before anyone else.</div>
-              <div>2. Build center foundations by suit from Ace to King.</div>
+              <div>2. Build center foundations by suit from low to high rank.</div>
               <div>3. Build your work piles down in alternating colors.</div>
               <div>4. Draw from stock when you run out of moves.</div>
               <button
@@ -1570,6 +1596,42 @@ export default function NertsGame() {
         </button>
         <h2 style={{ margin: "-36px 0 18px", textAlign: "center", fontSize: 54, fontWeight: 400 }}>Levels</h2>
 
+        <div
+          style={{
+            width: "min(460px, 96vw)",
+            margin: "0 auto 10px",
+            padding: "10px",
+            background: "rgba(255,255,255,0.16)",
+            border: "1px solid rgba(255,255,255,0.24)",
+            borderRadius: 6,
+            display: "grid",
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 17, opacity: 0.95 }}>Deck Style</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {Object.values(DECK_PRESETS).map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => setDeckType(preset.key)}
+                style={{
+                  flex: 1,
+                  height: 42,
+                  fontSize: 18,
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.4)",
+                  background: deckType === preset.key ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                  cursor: "pointer",
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.86 }}>{deckPreset.subtitle}</div>
+        </div>
+
         <div style={{ width: "min(460px, 96vw)", margin: "0 auto", display: "grid", gap: 6 }}>
           {LEVELS.map((level, idx) => (
             <button
@@ -1615,6 +1677,9 @@ export default function NertsGame() {
           ←
         </button>
         <h2 style={{ margin: "-36px 0 20px", textAlign: "center", fontSize: 54, fontWeight: 400 }}>Round {roundNumber}</h2>
+        <div style={{ textAlign: "center", opacity: 0.92, marginBottom: 8, marginTop: -8 }}>
+          Deck: {deckPreset.label}
+        </div>
 
         <div style={{ width: "min(470px, 96vw)", margin: "0 auto 24px", background: "rgba(255,255,255,0.2)", borderRadius: 4, padding: 8 }}>
           {PLAYERS.map((player, idx) => (
@@ -1770,6 +1835,7 @@ export default function NertsGame() {
         <div style={{ textAlign: "center", lineHeight: 1.1 }}>
           <div style={{ fontSize: 28, fontWeight: 500 }}>Round {roundNumber}</div>
           <div style={{ fontSize: 14, opacity: 0.9 }}>Level: {LEVELS.find((l) => l.key === difficulty)?.label || "Medium"}</div>
+          <div style={{ fontSize: 12, opacity: 0.82 }}>Deck: {deckPreset.label}</div>
         </div>
 
         <div style={{ textAlign: "right", fontSize: 14, minWidth: 120 }}>
@@ -1843,6 +1909,7 @@ export default function NertsGame() {
 
       <FoundationGrid
         foundations={board.foundations}
+        suits={deckPreset.suits}
         selectedCard={selectedCard}
         onCellClick={moveSelectedToFoundation}
         onCellDrop={onFoundationDrop}
