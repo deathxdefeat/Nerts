@@ -74,6 +74,8 @@ const WORK_PILES = 5;
 const NERTS_SIZE = 13;
 const WIN_SCORE = 100;
 const STATS_KEY = "nertz_stats_v1";
+const AUDIO_SETTINGS_KEY = "nertz_audio_v1";
+const SESSION_STATE_KEY = "nertz_session_v1";
 const DEFAULT_STATS = {
   roundsPlayed: 0,
   roundWins: 0,
@@ -89,6 +91,33 @@ const DEFAULT_STATS = {
   currentWinStreak: 0,
   longestWinStreak: 0,
 };
+
+const DEFAULT_AUDIO_SETTINGS = {
+  sfxEnabled: true,
+  musicEnabled: false,
+  hapticsEnabled: true,
+  sfxVolume: 0.7,
+  musicVolume: 0.55,
+};
+
+const MUSIC_FILE_SOURCES = [
+  "https://archive.org/download/01-kavinsky-lovefoxxx-nightcall/Drive%20(Original%20Motion%20Picture%20Soundtrack)/03%20-%20College%20-%20A%20Real%20Hero%20(feat.%20Electric%20Youth).mp3",
+  "https://archive.org/download/01-kavinsky-lovefoxxx-nightcall/Drive%20(Original%20Motion%20Picture%20Soundtrack)/03%20-%20College%20-%20A%20Real%20Hero%20(feat.%20Electric%20Youth).flac",
+];
+
+const SYNTH_BASS_PATTERN = [36, null, 36, null, 39, null, 36, null, 34, null, 34, null, 41, null, 34, null];
+const SYNTH_LEAD_PATTERN = [null, 67, null, 71, null, 74, null, 76, null, 67, null, 66, null, 62, null, 64];
+const SYNTH_ACCENT_PATTERN = [48, null, null, 50, null, null, 53, null, null, 50, null, null, 48, null, null, 46];
+const MUSIC_STEP_MS = 125;
+
+function midiToFrequency(midi) {
+  return 440 * (2 ** ((midi - 69) / 12));
+}
+
+function clamp01(value, fallback) {
+  const safe = Number.isFinite(value) ? value : fallback;
+  return Math.min(1, Math.max(0, safe));
+}
 
 function formatDuration(ms) {
   if (!ms || ms < 0) return "0:00";
@@ -386,14 +415,16 @@ function PlayingCard({
   faceDown = false,
   selected = false,
   small = false,
+  compact = false,
   rotate = 0,
   draggable = false,
   onDragStart,
   onDragEnd,
   onPointerDown,
 }) {
-  const width = small ? 54 : 74;
-  const height = small ? 76 : 104;
+  const width = small ? (compact ? 44 : 54) : (compact ? 58 : 74);
+  const height = small ? (compact ? 62 : 76) : (compact ? 84 : 104);
+  const cornerRadius = compact ? 3 : 4;
 
   if (faceDown) {
     return (
@@ -408,7 +439,7 @@ function PlayingCard({
           width,
           height,
           border: "none",
-          borderRadius: 4,
+          borderRadius: cornerRadius,
           cursor: draggable ? "grab" : onClick ? "pointer" : "default",
           background:
             "linear-gradient(145deg, #7fa68f 0%, #5f816e 45%, #466d5a 100%), repeating-linear-gradient(45deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22) 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 6px)",
@@ -416,7 +447,7 @@ function PlayingCard({
           boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
           transform: `rotate(${rotate}deg)`,
           padding: 0,
-          touchAction: draggable ? "none" : "auto",
+          touchAction: draggable ? "none" : "manipulation",
         }}
       />
     );
@@ -436,11 +467,11 @@ function PlayingCard({
           height,
           border: "1px solid rgba(255,255,255,0.25)",
           background: "rgba(255,255,255,0.08)",
-          borderRadius: 4,
+          borderRadius: cornerRadius,
           cursor: draggable ? "grab" : onClick ? "pointer" : "default",
           color: "rgba(255,255,255,0.4)",
-          fontSize: 24,
-          touchAction: draggable ? "none" : "auto",
+          fontSize: compact ? 20 : 24,
+          touchAction: draggable ? "none" : "manipulation",
         }}
       >
         ·
@@ -460,7 +491,7 @@ function PlayingCard({
         width,
         height,
         border: selected ? "2px solid #7ab3ff" : "1px solid rgba(0,0,0,0.2)",
-        borderRadius: 4,
+        borderRadius: cornerRadius,
         cursor: draggable ? "grab" : onClick ? "pointer" : "default",
         background: "#ffffff",
         color: card.inkColor || (card.color === "red" ? "#cc1e1e" : "#111111"),
@@ -469,33 +500,33 @@ function PlayingCard({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "4px 5px",
-        touchAction: draggable ? "none" : "auto",
+        padding: compact ? "3px 4px" : "4px 5px",
+        touchAction: draggable ? "none" : "manipulation",
       }}
     >
       <div style={{ textAlign: "left", lineHeight: 1 }}>
-        <div style={{ fontSize: small ? 14 : 18, fontWeight: 700 }}>{card.rank}</div>
-        <div style={{ fontSize: small ? 12 : 16, marginTop: -1 }}>{card.symbol}</div>
+        <div style={{ fontSize: small ? (compact ? 12 : 14) : compact ? 15 : 18, fontWeight: 700 }}>{card.rank}</div>
+        <div style={{ fontSize: small ? (compact ? 10 : 12) : compact ? 13 : 16, marginTop: -1 }}>{card.symbol}</div>
       </div>
-      <div style={{ fontSize: small ? 18 : 28, opacity: 0.75 }}>{card.symbol}</div>
+      <div style={{ fontSize: small ? (compact ? 14 : 18) : compact ? 22 : 28, opacity: 0.75 }}>{card.symbol}</div>
     </button>
   );
 }
 
-function FoundationGrid({ foundations, suits, onCellClick, selectedCard, onCellDrop, onCellDragOver, activeSuit }) {
+function FoundationGrid({ foundations, suits, compact = false, onCellClick, selectedCard, onCellDrop, onCellDragOver, activeSuit }) {
   return (
     <div
       style={{
-        margin: "10px auto 14px",
-        width: "min(560px, 94vw)",
-        padding: "8px",
+        margin: compact ? "8px auto 10px" : "10px auto 14px",
+        width: compact ? "min(540px, 98vw)" : "min(560px, 94vw)",
+        padding: compact ? "6px" : "8px",
         background: "rgba(255,255,255,0.16)",
         borderRadius: 4,
         border: "1px solid rgba(255,255,255,0.2)",
       }}
     >
       {Array.from({ length: PLAYERS.length }).map((_, rowIdx) => (
-        <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: `repeat(${suits.length}, 1fr)`, gap: 4, marginBottom: rowIdx === PLAYERS.length - 1 ? 0 : 4 }}>
+        <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: `repeat(${suits.length}, 1fr)`, gap: compact ? 3 : 4, marginBottom: rowIdx === PLAYERS.length - 1 ? 0 : compact ? 3 : 4 }}>
           {suits.map((suit) => {
             const pile = foundations[suit.key][rowIdx];
             const top = pile?.[pile.length - 1] || null;
@@ -512,7 +543,7 @@ function FoundationGrid({ foundations, suits, onCellClick, selectedCard, onCellD
                   onCellDrop(suit.key);
                 }}
                 style={{
-                  height: 52,
+                  height: compact ? 44 : 52,
                   border:
                     activeSuit === suit.key
                       ? "2px solid rgba(125, 186, 255, 0.95)"
@@ -521,18 +552,19 @@ function FoundationGrid({ foundations, suits, onCellClick, selectedCard, onCellD
                         : "1px solid rgba(255,255,255,0.2)",
                   background: activeSuit === suit.key ? "rgba(120, 183, 255, 0.22)" : "rgba(255,255,255,0.08)",
                   color: suit.inkColor || (suit.stackColor === "red" ? "#cf3030" : "#3a2010"),
-                  fontSize: 26,
+                  fontSize: compact ? 20 : 26,
                   borderRadius: 3,
                   cursor: selectedCard ? "pointer" : "default",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 4,
+                  gap: compact ? 2 : 4,
+                  touchAction: "manipulation",
                 }}
               >
                 {top ? (
                   <>
-                    <span style={{ fontSize: 22, fontWeight: 700 }}>{top.rank}</span>
+                    <span style={{ fontSize: compact ? 17 : 22, fontWeight: 700 }}>{top.rank}</span>
                     <span>{top.symbol}</span>
                   </>
                 ) : (
@@ -591,15 +623,34 @@ export default function NertsGame() {
   const [undoSnapshot, setUndoSnapshot] = useState(null);
   const [hint, setHint] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
+  const [viewportWidth, setViewportWidth] = useState(1280);
+  const [audioSettings, setAudioSettings] = useState(DEFAULT_AUDIO_SETTINGS);
+  const [hasSavedSession, setHasSavedSession] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   const boardRef = useRef(board);
   const scoresRef = useRef(scores);
   const screenRef = useRef(screen);
   const selectedRef = useRef(selected);
   const touchDragRef = useRef(touchDrag);
+  const isPausedRef = useRef(isPaused);
   const messageTimeoutRef = useRef(null);
   const aiCursorRef = useRef(1);
   const roundStartMsRef = useRef(null);
+  const pauseStartedMsRef = useRef(null);
+  const pausedDurationMsRef = useRef(0);
+  const audioSettingsRef = useRef(audioSettings);
+  const audioRef = useRef({
+    ctx: null,
+    masterGain: null,
+    sfxGain: null,
+    musicGain: null,
+    musicAudio: null,
+    musicSourceIndex: 0,
+    musicTimer: null,
+    musicStep: 0,
+    musicMode: "idle",
+  });
 
   useEffect(() => {
     boardRef.current = board;
@@ -622,6 +673,14 @@ export default function NertsGame() {
   }, [touchDrag]);
 
   useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  useEffect(() => {
+    audioSettingsRef.current = audioSettings;
+  }, [audioSettings]);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STATS_KEY);
       if (!raw) return;
@@ -640,6 +699,449 @@ export default function NertsGame() {
     }
   }, [stats]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(AUDIO_SETTINGS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      setAudioSettings((prev) => ({
+        ...prev,
+        ...parsed,
+        sfxVolume: clamp01(parsed?.sfxVolume, prev.sfxVolume),
+        musicVolume: clamp01(parsed?.musicVolume, prev.musicVolume),
+        hapticsEnabled: parsed?.hapticsEnabled ?? prev.hapticsEnabled,
+      }));
+    } catch {
+      // Ignore corrupted audio settings and continue with defaults.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(audioSettings));
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [audioSettings]);
+
+  useEffect(() => {
+    try {
+      setHasSavedSession(Boolean(window.localStorage.getItem(SESSION_STATE_KEY)));
+    } catch {
+      setHasSavedSession(false);
+    }
+  }, []);
+
+  const ensureAudioEngine = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    let runtime = audioRef.current;
+    let ctx = runtime.ctx;
+    if (!ctx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      ctx = new AudioContextClass();
+      const masterGain = ctx.createGain();
+      const sfxGain = ctx.createGain();
+      const musicGain = ctx.createGain();
+      const sfxVolume = clamp01(audioSettingsRef.current?.sfxVolume, DEFAULT_AUDIO_SETTINGS.sfxVolume);
+      const musicVolume = clamp01(audioSettingsRef.current?.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume);
+      masterGain.gain.setValueAtTime(0.72, ctx.currentTime);
+      sfxGain.gain.setValueAtTime(0.08 + sfxVolume * 0.46, ctx.currentTime);
+      musicGain.gain.setValueAtTime(0.03 + musicVolume * 0.28, ctx.currentTime);
+      sfxGain.connect(masterGain);
+      musicGain.connect(masterGain);
+      masterGain.connect(ctx.destination);
+      runtime = {
+        ...runtime,
+        ctx,
+        masterGain,
+        sfxGain,
+        musicGain,
+      };
+      audioRef.current = runtime;
+    }
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    return ctx;
+  }, []);
+
+  useEffect(() => {
+    const runtime = audioRef.current;
+    const sfxVolume = clamp01(audioSettings.sfxVolume, DEFAULT_AUDIO_SETTINGS.sfxVolume);
+    const musicVolume = clamp01(audioSettings.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume);
+    if (runtime.ctx) {
+      const now = runtime.ctx.currentTime;
+      runtime.sfxGain?.gain.setTargetAtTime(0.08 + sfxVolume * 0.46, now, 0.02);
+      runtime.musicGain?.gain.setTargetAtTime(0.03 + musicVolume * 0.28, now, 0.02);
+    }
+    if (runtime.musicAudio) {
+      runtime.musicAudio.volume = musicVolume;
+    }
+  }, [audioSettings.musicVolume, audioSettings.sfxVolume]);
+
+  const scheduleTone = useCallback((config) => {
+    const ctx = ensureAudioEngine();
+    if (!ctx) return;
+    const runtime = audioRef.current;
+    const targetGain = config.target === "music" ? runtime.musicGain : runtime.sfxGain;
+    if (!targetGain) return;
+
+    const start = ctx.currentTime + (config.startMs || 0) / 1000;
+    const duration = Math.max(0.02, (config.durationMs || 90) / 1000);
+    const attack = Math.max(0.002, (config.attackMs ?? 6) / 1000);
+    const release = Math.max(0.006, (config.releaseMs ?? 45) / 1000);
+    const stopAt = start + duration + 0.03;
+
+    const oscillator = ctx.createOscillator();
+    const amp = ctx.createGain();
+    oscillator.type = config.type || "square";
+    oscillator.frequency.setValueAtTime(Math.max(20, config.freq || 440), start);
+    if (config.slideTo && config.slideTo > 0) {
+      oscillator.frequency.exponentialRampToValueAtTime(config.slideTo, start + duration);
+    }
+    if (config.detune) oscillator.detune.setValueAtTime(config.detune, start);
+
+    amp.gain.setValueAtTime(0.0001, start);
+    amp.gain.exponentialRampToValueAtTime(config.volume ?? 0.12, start + attack);
+    amp.gain.exponentialRampToValueAtTime(0.0001, Math.max(start + attack + 0.006, start + duration - release));
+
+    oscillator.connect(amp);
+
+    if (config.filterHz) {
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(config.filterHz, start);
+      if (config.filterEndHz) {
+        filter.frequency.linearRampToValueAtTime(config.filterEndHz, start + duration);
+      }
+      filter.Q.setValueAtTime(config.filterQ ?? 0.8, start);
+      amp.connect(filter);
+      filter.connect(targetGain);
+    } else {
+      amp.connect(targetGain);
+    }
+
+    oscillator.start(start);
+    oscillator.stop(stopAt);
+  }, [ensureAudioEngine]);
+
+  const triggerHaptic = useCallback((kind = "tap") => {
+    if (!audioSettingsRef.current.hapticsEnabled) return;
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    if (kind === "error") {
+      navigator.vibrate([18, 30, 18]);
+      return;
+    }
+    if (kind === "roundWin") {
+      navigator.vibrate([15, 24, 28]);
+      return;
+    }
+    if (kind === "roundLose") {
+      navigator.vibrate([20, 40, 14, 40, 20]);
+      return;
+    }
+    if (kind === "auto" || kind === "hint") {
+      navigator.vibrate([10, 14, 10]);
+      return;
+    }
+    navigator.vibrate(10);
+  }, []);
+
+  const playSfx = useCallback((kind = "tap") => {
+    triggerHaptic(kind);
+    if (!audioSettingsRef.current.sfxEnabled) return;
+    if (kind === "tap") {
+      scheduleTone({ freq: 880, durationMs: 55, volume: 0.09, type: "square" });
+      return;
+    }
+    if (kind === "place") {
+      scheduleTone({ freq: 660, durationMs: 52, volume: 0.09, type: "square" });
+      scheduleTone({ startMs: 58, freq: 988, durationMs: 68, volume: 0.08, type: "square" });
+      return;
+    }
+    if (kind === "draw") {
+      scheduleTone({ freq: 440, durationMs: 72, volume: 0.08, type: "square" });
+      scheduleTone({ startMs: 78, freq: 554, durationMs: 82, volume: 0.08, type: "triangle" });
+      return;
+    }
+    if (kind === "error") {
+      scheduleTone({ freq: 260, slideTo: 140, durationMs: 140, volume: 0.12, type: "sawtooth", releaseMs: 70 });
+      return;
+    }
+    if (kind === "hint") {
+      scheduleTone({ freq: 784, durationMs: 68, volume: 0.07, type: "triangle" });
+      scheduleTone({ startMs: 74, freq: 1175, durationMs: 74, volume: 0.06, type: "triangle" });
+      return;
+    }
+    if (kind === "auto") {
+      scheduleTone({ freq: 659, durationMs: 64, volume: 0.07, type: "square" });
+      scheduleTone({ startMs: 72, freq: 784, durationMs: 64, volume: 0.07, type: "square" });
+      scheduleTone({ startMs: 144, freq: 988, durationMs: 84, volume: 0.08, type: "square" });
+      return;
+    }
+    if (kind === "undo") {
+      scheduleTone({ freq: 587, durationMs: 68, volume: 0.08, type: "triangle" });
+      scheduleTone({ startMs: 74, freq: 392, durationMs: 90, volume: 0.08, type: "triangle" });
+      return;
+    }
+    if (kind === "start") {
+      scheduleTone({ freq: 523, durationMs: 68, volume: 0.08, type: "square" });
+      scheduleTone({ startMs: 78, freq: 659, durationMs: 68, volume: 0.08, type: "square" });
+      scheduleTone({ startMs: 156, freq: 784, durationMs: 92, volume: 0.08, type: "square" });
+      return;
+    }
+    if (kind === "roundWin") {
+      scheduleTone({ freq: 523, durationMs: 82, volume: 0.09, type: "square" });
+      scheduleTone({ startMs: 94, freq: 659, durationMs: 84, volume: 0.09, type: "square" });
+      scheduleTone({ startMs: 186, freq: 784, durationMs: 86, volume: 0.09, type: "square" });
+      scheduleTone({ startMs: 278, freq: 1047, durationMs: 130, volume: 0.1, type: "triangle" });
+      return;
+    }
+    if (kind === "roundLose") {
+      scheduleTone({ freq: 349, durationMs: 92, volume: 0.09, type: "square" });
+      scheduleTone({ startMs: 98, freq: 294, durationMs: 110, volume: 0.09, type: "square" });
+      scheduleTone({ startMs: 212, freq: 220, durationMs: 150, volume: 0.09, type: "triangle" });
+    }
+  }, [scheduleTone, triggerHaptic]);
+
+  const playMusicStep = useCallback((step) => {
+    const bassMidi = SYNTH_BASS_PATTERN[step % SYNTH_BASS_PATTERN.length];
+    if (bassMidi !== null) {
+      const bassFreq = midiToFrequency(bassMidi);
+      scheduleTone({
+        target: "music",
+        freq: bassFreq,
+        durationMs: 210,
+        volume: 0.065,
+        type: "sawtooth",
+        filterHz: 980,
+        filterEndHz: 420,
+        filterQ: 1.2,
+        attackMs: 4,
+        releaseMs: 90,
+      });
+      scheduleTone({
+        target: "music",
+        freq: bassFreq / 2,
+        durationMs: 190,
+        volume: 0.035,
+        type: "square",
+        filterHz: 520,
+        filterEndHz: 260,
+        attackMs: 4,
+        releaseMs: 90,
+      });
+    }
+
+    const leadMidi = SYNTH_LEAD_PATTERN[step % SYNTH_LEAD_PATTERN.length];
+    if (leadMidi !== null) {
+      scheduleTone({
+        target: "music",
+        freq: midiToFrequency(leadMidi),
+        durationMs: 116,
+        volume: 0.04,
+        type: "square",
+        filterHz: 2400,
+        filterEndHz: 1200,
+        filterQ: 0.7,
+        attackMs: 3,
+        releaseMs: 55,
+      });
+    }
+
+    const accentMidi = SYNTH_ACCENT_PATTERN[step % SYNTH_ACCENT_PATTERN.length];
+    if (accentMidi !== null) {
+      scheduleTone({
+        target: "music",
+        freq: midiToFrequency(accentMidi),
+        durationMs: 85,
+        volume: 0.028,
+        type: "triangle",
+        filterHz: 1600,
+        filterEndHz: 900,
+        attackMs: 2,
+        releaseMs: 40,
+      });
+    }
+  }, [scheduleTone]);
+
+  const stopSynthMusic = useCallback(() => {
+    const runtime = audioRef.current;
+    if (runtime.musicTimer) {
+      window.clearInterval(runtime.musicTimer);
+      runtime.musicTimer = null;
+    }
+    runtime.musicStep = 0;
+  }, []);
+
+  const startSynthMusic = useCallback(() => {
+    const ctx = ensureAudioEngine();
+    if (!ctx) return;
+    const runtime = audioRef.current;
+    if (runtime.musicTimer) return;
+    runtime.musicMode = "synth";
+    runtime.musicStep = 0;
+    runtime.musicTimer = window.setInterval(() => {
+      if (!audioSettingsRef.current.musicEnabled) return;
+      playMusicStep(runtime.musicStep);
+      runtime.musicStep = (runtime.musicStep + 1) % SYNTH_BASS_PATTERN.length;
+    }, MUSIC_STEP_MS);
+  }, [ensureAudioEngine, playMusicStep]);
+
+  const stopMusic = useCallback(() => {
+    const runtime = audioRef.current;
+    stopSynthMusic();
+    if (runtime.musicAudio) {
+      runtime.musicAudio.pause();
+      runtime.musicAudio.currentTime = 0;
+    }
+    runtime.musicMode = "idle";
+  }, [stopSynthMusic]);
+
+  const startMusic = useCallback(() => {
+    ensureAudioEngine();
+    const runtime = audioRef.current;
+    stopSynthMusic();
+
+    if (!runtime.musicAudio) {
+      const musicAudio = new Audio();
+      musicAudio.loop = true;
+      musicAudio.preload = "auto";
+      musicAudio.crossOrigin = "anonymous";
+      runtime.musicAudio = musicAudio;
+    }
+
+    const musicAudio = runtime.musicAudio;
+    musicAudio.volume = clamp01(audioSettingsRef.current.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume);
+
+    const startSynthFallback = () => {
+      if (!audioSettingsRef.current.musicEnabled) return;
+      runtime.musicSourceIndex = 0;
+      runtime.musicMode = "synth";
+      musicAudio.pause();
+      musicAudio.removeAttribute("src");
+      musicAudio.load();
+      startSynthMusic();
+    };
+
+    const playSourceAt = (index) => {
+      if (!audioSettingsRef.current.musicEnabled) return;
+      if (index >= MUSIC_FILE_SOURCES.length) {
+        startSynthFallback();
+        return;
+      }
+      runtime.musicSourceIndex = index;
+      musicAudio.src = MUSIC_FILE_SOURCES[index];
+      musicAudio.currentTime = 0;
+      const playResult = musicAudio.play();
+      if (playResult && typeof playResult.then === "function") {
+        playResult
+          .then(() => {
+            if (!audioSettingsRef.current.musicEnabled) {
+              musicAudio.pause();
+              return;
+            }
+            runtime.musicMode = "file";
+          })
+          .catch(() => {
+            playSourceAt(index + 1);
+          });
+        return;
+      }
+      runtime.musicMode = "file";
+    };
+
+    playSourceAt(0);
+  }, [ensureAudioEngine, startSynthMusic, stopSynthMusic]);
+
+  useEffect(() => {
+    if (audioSettings.musicEnabled) {
+      startMusic();
+    } else {
+      stopMusic();
+    }
+  }, [audioSettings.musicEnabled, startMusic, stopMusic]);
+
+  useEffect(() => {
+    return () => {
+      stopMusic();
+      const runtime = audioRef.current;
+      if (runtime.musicAudio) {
+        runtime.musicAudio.pause();
+        runtime.musicAudio.removeAttribute("src");
+        runtime.musicAudio.load();
+        runtime.musicAudio = null;
+      }
+      if (runtime.ctx && runtime.ctx.state !== "closed") {
+        runtime.ctx.close().catch(() => {});
+      }
+    };
+  }, [stopMusic]);
+
+  const toggleSfx = useCallback(() => {
+    ensureAudioEngine();
+    const turningOn = !audioSettingsRef.current.sfxEnabled;
+    setAudioSettings((prev) => {
+      const next = { ...prev, sfxEnabled: !prev.sfxEnabled };
+      audioSettingsRef.current = next;
+      return next;
+    });
+    if (turningOn) {
+      scheduleTone({ freq: 988, durationMs: 64, volume: 0.08, type: "square" });
+      scheduleTone({ startMs: 70, freq: 1319, durationMs: 74, volume: 0.08, type: "square" });
+      return;
+    }
+    scheduleTone({ freq: 260, slideTo: 180, durationMs: 96, volume: 0.08, type: "triangle" });
+  }, [ensureAudioEngine, scheduleTone]);
+
+  const toggleMusic = useCallback(() => {
+    ensureAudioEngine();
+    const turningOn = !audioSettingsRef.current.musicEnabled;
+    setAudioSettings((prev) => {
+      const next = { ...prev, musicEnabled: !prev.musicEnabled };
+      audioSettingsRef.current = next;
+      return next;
+    });
+    if (audioSettingsRef.current.sfxEnabled) {
+      playSfx(turningOn ? "start" : "undo");
+    }
+  }, [ensureAudioEngine, playSfx]);
+
+  const toggleHaptics = useCallback(() => {
+    ensureAudioEngine();
+    const turningOn = !audioSettingsRef.current.hapticsEnabled;
+    setAudioSettings((prev) => {
+      const next = { ...prev, hapticsEnabled: !prev.hapticsEnabled };
+      audioSettingsRef.current = next;
+      return next;
+    });
+    if (turningOn) {
+      triggerHaptic("tap");
+    }
+    if (audioSettingsRef.current.sfxEnabled) {
+      playSfx(turningOn ? "tap" : "undo");
+    }
+  }, [ensureAudioEngine, playSfx, triggerHaptic]);
+
+  const updateSfxVolume = useCallback((event) => {
+    const nextVolume = clamp01(Number(event.target.value) / 100, DEFAULT_AUDIO_SETTINGS.sfxVolume);
+    setAudioSettings((prev) => {
+      const next = { ...prev, sfxVolume: nextVolume };
+      audioSettingsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const updateMusicVolume = useCallback((event) => {
+    const nextVolume = clamp01(Number(event.target.value) / 100, DEFAULT_AUDIO_SETTINGS.musicVolume);
+    setAudioSettings((prev) => {
+      const next = { ...prev, musicVolume: nextVolume };
+      audioSettingsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const pushMessage = useCallback((text) => {
     clearTimeout(messageTimeoutRef.current);
     setMessage(text);
@@ -650,9 +1152,160 @@ export default function NertsGame() {
     return () => clearTimeout(messageTimeoutRef.current);
   }, []);
 
+  const clearSavedSession = useCallback(() => {
+    try {
+      window.localStorage.removeItem(SESSION_STATE_KEY);
+    } catch {
+      // Ignore storage write failures.
+    }
+    setHasSavedSession(false);
+  }, []);
+
+  const pauseRound = useCallback((reason = "Paused") => {
+    if (screenRef.current !== "playing") return;
+    if (isPausedRef.current) return;
+    isPausedRef.current = true;
+    pauseStartedMsRef.current = Date.now();
+    setIsPaused(true);
+    setTouchDrag(null);
+    setDragPayload(null);
+    setDragOverSuit(null);
+    setDragOverWork(null);
+    pushMessage(reason);
+  }, [pushMessage]);
+
+  const resumeRound = useCallback(() => {
+    if (screenRef.current !== "playing") return;
+    if (!isPausedRef.current) return;
+    if (pauseStartedMsRef.current) {
+      pausedDurationMsRef.current += Math.max(0, Date.now() - pauseStartedMsRef.current);
+      pauseStartedMsRef.current = null;
+    }
+    isPausedRef.current = false;
+    setIsPaused(false);
+    playSfx("tap");
+    pushMessage("Back in play");
+  }, [playSfx, pushMessage]);
+
+  const resumeSavedSession = useCallback(() => {
+    try {
+      const raw = window.localStorage.getItem(SESSION_STATE_KEY);
+      if (!raw) {
+        setHasSavedSession(false);
+        pushMessage("No saved session");
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed?.board || !Array.isArray(parsed?.scores) || parsed.scores.length !== PLAYERS.length) {
+        clearSavedSession();
+        pushMessage("Saved session unavailable");
+        return;
+      }
+      const nextDeckType = typeof parsed.deckType === "string" && DECK_PRESETS[parsed.deckType] ? parsed.deckType : "standard";
+      const nextDifficulty = typeof parsed.difficulty === "string" && AI_TICK_MS[parsed.difficulty]
+        ? parsed.difficulty
+        : "medium";
+      const nextRoundNumber = Number.isFinite(parsed.roundNumber) ? Math.max(1, Math.floor(parsed.roundNumber)) : 1;
+      const nextScores = parsed.scores.map((score) => (Number.isFinite(score) ? score : 0));
+      const nextScreen = ["round", "playing", "roundOver"].includes(parsed.screen) ? parsed.screen : "round";
+      const nextSelection = parsed.selected || null;
+
+      setDeckType(nextDeckType);
+      setDifficulty(nextDifficulty);
+      setRoundNumber(nextRoundNumber);
+      scoresRef.current = nextScores;
+      setScores(nextScores);
+      boardRef.current = parsed.board;
+      setBoard(parsed.board);
+      setRoundResult(parsed.roundResult || null);
+      setScreen(nextScreen);
+      setSelected(nextSelection);
+      selectedRef.current = nextSelection;
+      setDragPayload(null);
+      setDragOverSuit(null);
+      setDragOverWork(null);
+      setUndoSnapshot(null);
+      setHint(null);
+      setTouchDrag(null);
+      setShowRules(false);
+      roundStartMsRef.current = Number.isFinite(parsed.roundStartMs) ? parsed.roundStartMs : null;
+      pausedDurationMsRef.current = Number.isFinite(parsed.pausedDurationMs)
+        ? Math.max(0, parsed.pausedDurationMs)
+        : 0;
+      pauseStartedMsRef.current = null;
+      if (nextScreen === "playing" && !roundStartMsRef.current) {
+        roundStartMsRef.current = Date.now();
+      }
+
+      if (nextScreen === "playing") {
+        isPausedRef.current = true;
+        setIsPaused(true);
+        pushMessage("Session resumed (paused)");
+      } else {
+        isPausedRef.current = false;
+        setIsPaused(false);
+        pushMessage("Session resumed");
+      }
+      setHasSavedSession(true);
+    } catch {
+      clearSavedSession();
+      pushMessage("Saved session unavailable");
+    }
+  }, [clearSavedSession, pushMessage]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const onVisibilityChange = () => {
+      if (!document.hidden) return;
+      pauseRound("Paused while app inactive");
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [pauseRound]);
+
   const deckPreset = getDeckPreset(deckType);
+  const isCompact = viewportWidth <= 760;
+  const isPhone = viewportWidth <= 520;
+  const mainCardWidth = isCompact ? 58 : 74;
+  const mainCardHeight = isCompact ? 84 : 104;
+  const workFanOffset = isCompact ? 16 : 20;
+  const workVisibleCount = isCompact ? 6 : 7;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!board) return;
+    if (!["round", "playing", "roundOver"].includes(screen)) return;
+    const sessionPayload = {
+      board,
+      screen,
+      deckType,
+      difficulty,
+      roundNumber,
+      scores,
+      roundResult,
+      selected,
+      roundStartMs: roundStartMsRef.current,
+      pausedDurationMs: pausedDurationMsRef.current,
+      savedAt: Date.now(),
+    };
+    try {
+      window.localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(sessionPayload));
+      setHasSavedSession(true);
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [board, deckType, difficulty, roundNumber, roundResult, screen, scores, selected]);
 
   const prepareRound = useCallback((nextDifficulty, resetScores = false) => {
+    ensureAudioEngine();
+    playSfx("start");
     const built = initBoard(deckPreset);
     boardRef.current = built;
     setBoard(built);
@@ -668,6 +1321,10 @@ export default function NertsGame() {
     setTouchDrag(null);
     aiCursorRef.current = 1;
     roundStartMsRef.current = null;
+    pauseStartedMsRef.current = null;
+    pausedDurationMsRef.current = 0;
+    isPausedRef.current = false;
+    setIsPaused(false);
 
     if (resetScores) {
       scoresRef.current = [0, 0, 0, 0];
@@ -677,7 +1334,7 @@ export default function NertsGame() {
     }
 
     setScreen("round");
-  }, [deckPreset]);
+  }, [deckPreset, ensureAudioEngine, playSfx]);
 
   const endRound = useCallback((winnerId, boardSnapshot) => {
     if (screenRef.current !== "playing") return;
@@ -686,8 +1343,16 @@ export default function NertsGame() {
     const nertsLeft = boardSnapshot.players.map((p) => p.nertsPile.length);
     const roundPoints = foundationCounts.map((f, idx) => f - nertsLeft[idx] * 2);
     const totals = scoresRef.current.map((s, idx) => s + roundPoints[idx]);
-    const roundDurationMs = roundStartMsRef.current ? Math.max(0, Date.now() - roundStartMsRef.current) : 0;
+    const now = Date.now();
+    const activePauseMs = pauseStartedMsRef.current ? Math.max(0, now - pauseStartedMsRef.current) : 0;
+    const roundDurationMs = roundStartMsRef.current
+      ? Math.max(0, now - roundStartMsRef.current - pausedDurationMsRef.current - activePauseMs)
+      : 0;
     roundStartMsRef.current = null;
+    pauseStartedMsRef.current = null;
+    pausedDurationMsRef.current = 0;
+    isPausedRef.current = false;
+    setIsPaused(false);
 
     scoresRef.current = totals;
     setScores(totals);
@@ -717,15 +1382,17 @@ export default function NertsGame() {
     setHint(null);
     setRoundResult({ winnerId, roundPoints, totals, foundationCounts, nertsLeft, roundDurationMs });
     setScreen("roundOver");
-  }, []);
+    playSfx(winnerId === 0 ? "roundWin" : "roundLose");
+  }, [playSfx]);
 
   useEffect(() => {
-    if (screen !== "playing") return;
+    if (screen !== "playing" || isPaused) return;
 
     const timer = setInterval(() => {
       const current = boardRef.current;
       if (!current) return;
       if (touchDragRef.current) return;
+      if (isPausedRef.current) return;
 
       const aiIndex = aiCursorRef.current;
       aiCursorRef.current = aiCursorRef.current >= PLAYERS.length - 1 ? 1 : aiCursorRef.current + 1;
@@ -754,13 +1421,13 @@ export default function NertsGame() {
     }, AI_TICK_MS[difficulty] || AI_TICK_MS.medium);
 
     return () => clearInterval(timer);
-  }, [difficulty, endRound, screen]);
+  }, [difficulty, endRound, isPaused, screen]);
 
   const human = board?.players?.[0] || null;
   const selectedCard = human && selected ? getHumanSelectedCard(human, selected) : null;
 
   const selectFromSource = (source, workIndex = null, stackStart = null) => {
-    if (screen !== "playing" || !human) return;
+    if (screen !== "playing" || isPausedRef.current || !human) return;
     setHint(null);
     setDragOverSuit(null);
     setDragOverWork(null);
@@ -796,7 +1463,7 @@ export default function NertsGame() {
 
   const moveSelectedToFoundation = (clickedSuit, selectionOverride = null) => {
     const activeSelection = selectionOverride || selectedRef.current;
-    if (screen !== "playing" || !activeSelection || !board) return;
+    if (screen !== "playing" || isPausedRef.current || !activeSelection || !board) return;
 
     const nextPlayers = clonePlayers(board.players);
     const nextFoundations = cloneFoundations(board.foundations);
@@ -808,17 +1475,20 @@ export default function NertsGame() {
       const pile = me.work[activeSelection.workIndex];
       const topIndex = pile.length - 1;
       if (activeSelection.stackStart !== topIndex) {
+        playSfx("error");
         pushMessage("Only top work card goes to foundation");
         return;
       }
     }
     if (clickedSuit && clickedSuit !== card.suit) {
+      playSfx("error");
       pushMessage("Wrong suit");
       return;
     }
 
     const target = findFoundationTarget(card, nextFoundations);
     if (!target) {
+      playSfx("error");
       pushMessage("No spot there");
       return;
     }
@@ -848,6 +1518,7 @@ export default function NertsGame() {
     setHint(null);
     setDragOverSuit(null);
     setDragOverWork(null);
+    playSfx("place");
 
     if (!me.nertsPile.length) {
       endRound(0, nextBoard);
@@ -856,7 +1527,7 @@ export default function NertsGame() {
 
   const moveSelectedToWork = (targetWorkIndex, selectionOverride = null) => {
     const activeSelection = selectionOverride || selectedRef.current;
-    if (screen !== "playing" || !activeSelection || !board) return;
+    if (screen !== "playing" || isPausedRef.current || !activeSelection || !board) return;
 
     const nextPlayers = clonePlayers(board.players);
     const me = nextPlayers[0];
@@ -874,6 +1545,7 @@ export default function NertsGame() {
       if (!card) return;
       movingCards = [card];
       if (!canPlayOnWork(card, targetPile)) {
+        playSfx("error");
         pushMessage("Can't stack");
         return;
       }
@@ -883,6 +1555,7 @@ export default function NertsGame() {
       if (!card) return;
       movingCards = [card];
       if (!canPlayOnWork(card, targetPile)) {
+        playSfx("error");
         pushMessage("Can't stack");
         return;
       }
@@ -897,10 +1570,12 @@ export default function NertsGame() {
       movingCards = sourcePile.slice(stackStart);
       if (!movingCards.length) return;
       if (!isValidDescendingStack(movingCards)) {
+        playSfx("error");
         pushMessage("Invalid stack");
         return;
       }
       if (!canPlayOnWork(movingCards[0], targetPile)) {
+        playSfx("error");
         pushMessage("Can't stack");
         return;
       }
@@ -925,6 +1600,7 @@ export default function NertsGame() {
     setHint(null);
     setDragOverSuit(null);
     setDragOverWork(null);
+    playSfx("place");
 
     if (!me.nertsPile.length) {
       endRound(0, nextBoard);
@@ -932,7 +1608,8 @@ export default function NertsGame() {
   };
 
   const drawFromStock = () => {
-    if (screen !== "playing" || !board) return;
+    if (screen !== "playing" || isPausedRef.current || !board) return;
+    ensureAudioEngine();
     setUndoSnapshot({
       board: {
         players: clonePlayers(board.players),
@@ -950,9 +1627,11 @@ export default function NertsGame() {
     setHint(null);
     setDragOverSuit(null);
     setDragOverWork(null);
+    playSfx("draw");
   };
 
   const startDragFrom = (source, workIndex = null, stackStart = null) => (event) => {
+    if (isPausedRef.current) return;
     const payload = { source, workIndex, stackStart };
     setDragPayload(payload);
     setHint(null);
@@ -980,6 +1659,7 @@ export default function NertsGame() {
   };
 
   const onFoundationDragOver = (event, suitKey) => {
+    if (isPausedRef.current) return;
     if (!dragPayload && !selectedRef.current) return;
     event.preventDefault();
     setDragOverSuit(suitKey);
@@ -987,6 +1667,7 @@ export default function NertsGame() {
   };
 
   const onFoundationDrop = (suitKey) => {
+    if (isPausedRef.current) return;
     const payload = dragPayload || selectedRef.current;
     if (!payload) return;
     moveSelectedToFoundation(suitKey, payload);
@@ -994,6 +1675,7 @@ export default function NertsGame() {
   };
 
   const onWorkDragOver = (event, workIndex) => {
+    if (isPausedRef.current) return;
     if (!dragPayload && !selectedRef.current) return;
     event.preventDefault();
     setDragOverWork(workIndex);
@@ -1001,6 +1683,7 @@ export default function NertsGame() {
   };
 
   const onWorkDrop = (workIndex) => {
+    if (isPausedRef.current) return;
     const payload = dragPayload || selectedRef.current;
     if (!payload) return;
     moveSelectedToWork(workIndex, payload);
@@ -1060,12 +1743,13 @@ export default function NertsGame() {
   }, []);
 
   const applyHint = () => {
-    if (screen !== "playing") return;
+    if (screen !== "playing" || isPausedRef.current) return;
     const suggested = findHint();
     if (!suggested) {
       setHint(null);
       setDragOverSuit(null);
       setDragOverWork(null);
+      playSfx("error");
       pushMessage("No useful move");
       return;
     }
@@ -1075,6 +1759,7 @@ export default function NertsGame() {
       selectedRef.current = null;
       setDragOverSuit(null);
       setDragOverWork(null);
+      playSfx("hint");
       pushMessage("Hint: draw from stock");
       return;
     }
@@ -1089,16 +1774,18 @@ export default function NertsGame() {
     if (suggested.kind === "foundation") {
       setDragOverSuit(suggested.suit);
       setDragOverWork(null);
+      playSfx("hint");
       pushMessage("Hint: send to foundation");
       return;
     }
     setDragOverWork(suggested.targetWorkIndex);
     setDragOverSuit(null);
+    playSfx("hint");
     pushMessage("Hint: move to work pile");
   };
 
   const autoPlayFoundations = () => {
-    if (screen !== "playing" || !board) return;
+    if (screen !== "playing" || isPausedRef.current || !board) return;
     const nextPlayers = clonePlayers(board.players);
     const nextFoundations = cloneFoundations(board.foundations);
     const me = nextPlayers[0];
@@ -1133,6 +1820,7 @@ export default function NertsGame() {
     }
 
     if (!movedAny) {
+      playSfx("error");
       pushMessage("No auto moves");
       return;
     }
@@ -1152,6 +1840,7 @@ export default function NertsGame() {
     selectedRef.current = null;
     setDragOverSuit(null);
     setDragOverWork(null);
+    playSfx("auto");
     pushMessage("Auto-play complete");
 
     if (!me.nertsPile.length) {
@@ -1160,7 +1849,7 @@ export default function NertsGame() {
   };
 
   const undoLastMove = () => {
-    if (screen !== "playing" || !undoSnapshot) return;
+    if (screen !== "playing" || isPausedRef.current || !undoSnapshot) return;
     const restored = {
       players: clonePlayers(undoSnapshot.board.players),
       foundations: cloneFoundations(undoSnapshot.board.foundations),
@@ -1175,6 +1864,7 @@ export default function NertsGame() {
     setTouchDrag(null);
     setDragOverSuit(null);
     setDragOverWork(null);
+    playSfx("undo");
     pushMessage("Undid last move");
   };
 
@@ -1197,7 +1887,7 @@ export default function NertsGame() {
   };
 
   const startTouchDragFrom = (source, workIndex = null, stackStart = null) => (event) => {
-    if (screen !== "playing") return;
+    if (screen !== "playing" || isPausedRef.current) return;
     if (event.pointerType === "mouse") return;
     if (source === "nerts" && !human?.nertsPile?.length) return;
     if (source === "waste" && !human?.waste?.length) return;
@@ -1276,6 +1966,8 @@ export default function NertsGame() {
   }, [touchDrag?.pointerId]);
 
   const startNextRound = () => {
+    ensureAudioEngine();
+    playSfx("start");
     const champion = roundResult?.totals?.some((n) => n >= WIN_SCORE);
     const matchWinnerId =
       champion && roundResult?.totals?.length
@@ -1298,6 +1990,11 @@ export default function NertsGame() {
       setHint(null);
       setTouchDrag(null);
       roundStartMsRef.current = null;
+      pauseStartedMsRef.current = null;
+      pausedDurationMsRef.current = 0;
+      isPausedRef.current = false;
+      setIsPaused(false);
+      clearSavedSession();
       return;
     }
 
@@ -1315,12 +2012,22 @@ export default function NertsGame() {
     setTouchDrag(null);
     aiCursorRef.current = 1;
     roundStartMsRef.current = null;
+    pauseStartedMsRef.current = null;
+    pausedDurationMsRef.current = 0;
+    isPausedRef.current = false;
+    setIsPaused(false);
     setRoundNumber((r) => r + 1);
     setScreen("round");
   };
 
   const startPlayingRound = () => {
+    ensureAudioEngine();
+    playSfx("start");
     roundStartMsRef.current = Date.now();
+    pauseStartedMsRef.current = null;
+    pausedDurationMsRef.current = 0;
+    isPausedRef.current = false;
+    setIsPaused(false);
     setSelected(null);
     selectedRef.current = null;
     setHint(null);
@@ -1332,6 +2039,8 @@ export default function NertsGame() {
   };
 
   const quitToMenu = () => {
+    ensureAudioEngine();
+    playSfx("tap");
     setScreen("menu");
     setSelected(null);
     selectedRef.current = null;
@@ -1344,6 +2053,10 @@ export default function NertsGame() {
     setHint(null);
     setTouchDrag(null);
     roundStartMsRef.current = null;
+    pauseStartedMsRef.current = null;
+    pausedDurationMsRef.current = 0;
+    isPausedRef.current = false;
+    setIsPaused(false);
   };
 
   const achievements = [
@@ -1388,54 +2101,205 @@ export default function NertsGame() {
           </h1>
 
           <div style={{ display: "grid", gap: 8 }}>
+            {hasSavedSession && (
+              <button
+                type="button"
+                onClick={() => {
+                  ensureAudioEngine();
+                  playSfx("tap");
+                  resumeSavedSession();
+                }}
+                style={{
+                  height: isPhone ? 48 : 52,
+                  fontSize: isPhone ? 24 : 30,
+                  lineHeight: 1,
+                  color: "#ffffff",
+                  background: "rgba(31,130,89,0.9)",
+                  border: "none",
+                  borderRadius: 0,
+                  cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
+              >
+                Resume Saved Match
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setScreen("levels")}
+              onClick={() => {
+                ensureAudioEngine();
+                playSfx("tap");
+                setScreen("levels");
+              }}
               style={{
-                height: 58,
-                fontSize: 42,
+                height: isPhone ? 52 : 58,
+                fontSize: isPhone ? 34 : 42,
                 lineHeight: 1,
                 color: "#e9f1ff",
                 background: "rgba(108,157,226,0.86)",
                 border: "none",
                 borderRadius: 0,
                 cursor: "pointer",
+                touchAction: "manipulation",
               }}
             >
               Play
             </button>
             <button
               type="button"
-              onClick={() => setShowRules(true)}
+              onClick={() => {
+                ensureAudioEngine();
+                playSfx("tap");
+                setShowRules(true);
+              }}
               style={{
-                height: 58,
-                fontSize: 42,
+                height: isPhone ? 52 : 58,
+                fontSize: isPhone ? 34 : 42,
                 lineHeight: 1,
                 color: "#ffffff",
                 background: "rgba(55,24,7,0.7)",
                 border: "none",
                 borderRadius: 0,
                 cursor: "pointer",
+                touchAction: "manipulation",
               }}
             >
               How To Play
             </button>
             <button
               type="button"
-              onClick={() => setScreen("achievements")}
+              onClick={() => {
+                ensureAudioEngine();
+                playSfx("tap");
+                setScreen("achievements");
+              }}
               style={{
-                height: 58,
-                fontSize: 42,
+                height: isPhone ? 52 : 58,
+                fontSize: isPhone ? 34 : 42,
                 lineHeight: 1,
                 color: "#ffffff",
                 background: "rgba(55,24,7,0.7)",
                 border: "none",
                 borderRadius: 0,
                 cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+              >
+                Achievements
+              </button>
+            </div>
+
+          {hasSavedSession && (
+            <button
+              type="button"
+              onClick={() => {
+                ensureAudioEngine();
+                playSfx("undo");
+                clearSavedSession();
+                pushMessage("Saved session cleared");
+              }}
+              style={{
+                marginTop: 8,
+                width: "100%",
+                height: 32,
+                fontSize: isPhone ? 12 : 13,
+                color: "#fff",
+                background: "rgba(0,0,0,0.24)",
+                border: "1px solid rgba(255,255,255,0.3)",
+                cursor: "pointer",
+                touchAction: "manipulation",
               }}
             >
-              Achievements
+              Discard Saved Match
             </button>
+          )}
+
+          <div
+            style={{
+              marginTop: 10,
+              padding: isPhone ? 8 : 10,
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 6,
+              display: "grid",
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: isPhone ? 14 : 16, opacity: 0.96 }}>Audio</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                onClick={toggleSfx}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  fontSize: isPhone ? 13 : 14,
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  background: audioSettings.sfxEnabled ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                  cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
+              >
+                SFX {audioSettings.sfxEnabled ? "ON" : "OFF"}
+              </button>
+              <button
+                type="button"
+                onClick={toggleMusic}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  fontSize: isPhone ? 13 : 14,
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  background: audioSettings.musicEnabled ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                  cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
+              >
+                Music {audioSettings.musicEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={toggleHaptics}
+              style={{
+                height: 34,
+                fontSize: isPhone ? 13 : 14,
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: audioSettings.hapticsEnabled ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              Haptics {audioSettings.hapticsEnabled ? "ON" : "OFF"}
+            </button>
+            <label style={{ fontSize: isPhone ? 11 : 12, opacity: 0.9, display: "grid", gap: 4 }}>
+              <span>SFX Volume: {Math.round(clamp01(audioSettings.sfxVolume, DEFAULT_AUDIO_SETTINGS.sfxVolume) * 100)}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={Math.round(clamp01(audioSettings.sfxVolume, DEFAULT_AUDIO_SETTINGS.sfxVolume) * 100)}
+                onChange={updateSfxVolume}
+                style={{ width: "100%", accentColor: "#6c9de2" }}
+              />
+            </label>
+            <label style={{ fontSize: isPhone ? 11 : 12, opacity: 0.9, display: "grid", gap: 4 }}>
+              <span>Music Volume: {Math.round(clamp01(audioSettings.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume) * 100)}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={Math.round(clamp01(audioSettings.musicVolume, DEFAULT_AUDIO_SETTINGS.musicVolume) * 100)}
+                onChange={updateMusicVolume}
+                style={{ width: "100%", accentColor: "#6c9de2" }}
+              />
+            </label>
+            <div style={{ fontSize: isPhone ? 11 : 12, opacity: 0.86 }}>8-bit SFX + A Real Hero (synth fallback)</div>
           </div>
 
           <div style={{ marginTop: 14, fontSize: 16, minHeight: 22 }}>{message}</div>
@@ -1460,19 +2324,23 @@ export default function NertsGame() {
                 background: "rgba(34,14,4,0.9)",
                 border: "1px solid rgba(255,255,255,0.25)",
                 borderRadius: 8,
-                padding: 18,
-                fontSize: 18,
+                padding: isPhone ? 14 : 18,
+                fontSize: isPhone ? 16 : 18,
                 lineHeight: 1.35,
               }}
             >
-              <div style={{ fontSize: 28, marginBottom: 10 }}>How to play</div>
+              <div style={{ fontSize: isPhone ? 24 : 28, marginBottom: 10 }}>How to play</div>
               <div>1. Empty your 13-card NERTS pile before anyone else.</div>
               <div>2. Build center foundations by suit from low to high rank.</div>
               <div>3. Build your work piles down in alternating colors.</div>
               <div>4. Draw from stock when you run out of moves.</div>
               <button
                 type="button"
-                onClick={() => setShowRules(false)}
+                onClick={() => {
+                  ensureAudioEngine();
+                  playSfx("tap");
+                  setShowRules(false);
+                }}
                 style={{
                   marginTop: 14,
                   height: 42,
@@ -1480,8 +2348,9 @@ export default function NertsGame() {
                   background: "rgba(108,157,226,0.9)",
                   color: "#fff",
                   border: "none",
-                  fontSize: 22,
+                  fontSize: isPhone ? 20 : 22,
                   cursor: "pointer",
+                  touchAction: "manipulation",
                 }}
               >
                 Close
@@ -1495,10 +2364,14 @@ export default function NertsGame() {
 
   if (screen === "achievements") {
     return (
-      <div style={{ ...woodBackground, padding: "10px 14px" }}>
+      <div style={{ ...woodBackground, padding: isPhone ? "10px 10px" : "10px 14px" }}>
         <button
           type="button"
-          onClick={() => setScreen("menu")}
+          onClick={() => {
+            ensureAudioEngine();
+            playSfx("tap");
+            setScreen("menu");
+          }}
           style={{
             width: 42,
             height: 42,
@@ -1508,11 +2381,12 @@ export default function NertsGame() {
             color: "#fff",
             fontSize: 24,
             cursor: "pointer",
+            touchAction: "manipulation",
           }}
         >
           ←
         </button>
-        <h2 style={{ margin: "-36px 0 14px", textAlign: "center", fontSize: 48, fontWeight: 400 }}>Achievements</h2>
+        <h2 style={{ margin: "-36px 0 14px", textAlign: "center", fontSize: isPhone ? 38 : 48, fontWeight: 400 }}>Achievements</h2>
 
         <div
           style={{
@@ -1523,9 +2397,9 @@ export default function NertsGame() {
             borderRadius: 6,
             padding: 10,
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            gridTemplateColumns: `repeat(auto-fit, minmax(${isPhone ? 140 : 170}px, 1fr))`,
             gap: 8,
-            fontSize: 16,
+            fontSize: isPhone ? 14 : 16,
           }}
         >
           <div>Rounds: {stats.roundsPlayed}</div>
@@ -1560,10 +2434,10 @@ export default function NertsGame() {
               }}
             >
               <div>
-                <div style={{ fontSize: 22, fontWeight: 600 }}>{item.title}</div>
-                <div style={{ fontSize: 15, opacity: 0.92 }}>{item.description}</div>
+                <div style={{ fontSize: isPhone ? 18 : 22, fontWeight: 600 }}>{item.title}</div>
+                <div style={{ fontSize: isPhone ? 13 : 15, opacity: 0.92 }}>{item.description}</div>
               </div>
-              <div style={{ fontSize: 28, minWidth: 30, textAlign: "center" }}>{item.unlocked ? "✓" : "○"}</div>
+              <div style={{ fontSize: isPhone ? 24 : 28, minWidth: 30, textAlign: "center" }}>{item.unlocked ? "✓" : "○"}</div>
             </div>
           ))}
         </div>
@@ -1577,10 +2451,14 @@ export default function NertsGame() {
 
   if (screen === "levels") {
     return (
-      <div style={{ ...woodBackground, padding: "10px 14px" }}>
+      <div style={{ ...woodBackground, padding: isPhone ? "10px 10px" : "10px 14px" }}>
         <button
           type="button"
-          onClick={() => setScreen("menu")}
+          onClick={() => {
+            ensureAudioEngine();
+            playSfx("tap");
+            setScreen("menu");
+          }}
           style={{
             width: 42,
             height: 42,
@@ -1590,11 +2468,12 @@ export default function NertsGame() {
             color: "#fff",
             fontSize: 24,
             cursor: "pointer",
+            touchAction: "manipulation",
           }}
         >
           ←
         </button>
-        <h2 style={{ margin: "-36px 0 18px", textAlign: "center", fontSize: 54, fontWeight: 400 }}>Levels</h2>
+        <h2 style={{ margin: "-36px 0 18px", textAlign: "center", fontSize: isPhone ? 40 : 54, fontWeight: 400 }}>Levels</h2>
 
         <div
           style={{
@@ -1614,15 +2493,20 @@ export default function NertsGame() {
               <button
                 key={preset.key}
                 type="button"
-                onClick={() => setDeckType(preset.key)}
+                onClick={() => {
+                  ensureAudioEngine();
+                  playSfx("tap");
+                  setDeckType(preset.key);
+                }}
                 style={{
                   flex: 1,
                   height: 42,
-                  fontSize: 18,
+                  fontSize: isPhone ? 16 : 18,
                   color: "#fff",
                   border: "1px solid rgba(255,255,255,0.4)",
                   background: deckType === preset.key ? "rgba(108,157,226,0.9)" : "rgba(55,24,7,0.72)",
                   cursor: "pointer",
+                  touchAction: "manipulation",
                 }}
               >
                 {preset.label}
@@ -1639,14 +2523,15 @@ export default function NertsGame() {
               type="button"
               onClick={() => prepareRound(level.key, true)}
               style={{
-                height: 64,
+                height: isPhone ? 56 : 64,
                 textAlign: "left",
                 padding: "0 16px",
-                fontSize: 44,
+                fontSize: isPhone ? 32 : 44,
                 color: "#fff",
                 background: idx === 0 ? "rgba(108,157,226,0.86)" : "rgba(55,24,7,0.72)",
                 border: "none",
                 cursor: "pointer",
+                touchAction: "manipulation",
               }}
             >
               {level.label}
@@ -1659,7 +2544,7 @@ export default function NertsGame() {
 
   if (screen === "round") {
     return (
-      <div style={{ ...woodBackground, padding: "10px 14px" }}>
+      <div style={{ ...woodBackground, padding: isPhone ? "10px 10px" : "10px 14px" }}>
         <button
           type="button"
           onClick={quitToMenu}
@@ -1672,16 +2557,17 @@ export default function NertsGame() {
             color: "#fff",
             fontSize: 24,
             cursor: "pointer",
+            touchAction: "manipulation",
           }}
         >
           ←
         </button>
-        <h2 style={{ margin: "-36px 0 20px", textAlign: "center", fontSize: 54, fontWeight: 400 }}>Round {roundNumber}</h2>
-        <div style={{ textAlign: "center", opacity: 0.92, marginBottom: 8, marginTop: -8 }}>
+        <h2 style={{ margin: "-36px 0 20px", textAlign: "center", fontSize: isPhone ? 40 : 54, fontWeight: 400 }}>Round {roundNumber}</h2>
+        <div style={{ textAlign: "center", opacity: 0.92, marginBottom: 8, marginTop: -8, fontSize: isPhone ? 14 : 16 }}>
           Deck: {deckPreset.label}
         </div>
 
-        <div style={{ width: "min(470px, 96vw)", margin: "0 auto 24px", background: "rgba(255,255,255,0.2)", borderRadius: 4, padding: 8 }}>
+        <div style={{ width: "min(470px, 96vw)", margin: "0 auto 24px", background: "rgba(255,255,255,0.2)", borderRadius: 4, padding: isPhone ? 6 : 8 }}>
           {PLAYERS.map((player, idx) => (
             <div
               key={player.id}
@@ -1689,10 +2575,10 @@ export default function NertsGame() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                height: 42,
+                height: isPhone ? 36 : 42,
                 padding: "0 10px",
                 background: idx % 2 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)",
-                fontSize: 34,
+                fontSize: isPhone ? 24 : 34,
               }}
             >
               <span>{idx === 0 ? `★ ${player.name}` : player.name}</span>
@@ -1707,12 +2593,13 @@ export default function NertsGame() {
             onClick={startPlayingRound}
             style={{
               width: "100%",
-              height: 66,
-              fontSize: 44,
+              height: isPhone ? 58 : 66,
+              fontSize: isPhone ? 32 : 44,
               color: "#fff",
               background: "rgba(55,24,7,0.72)",
               border: "none",
               cursor: "pointer",
+              touchAction: "manipulation",
             }}
           >
             Play
@@ -1728,8 +2615,8 @@ export default function NertsGame() {
     const championName = champion ? PLAYERS[roundResult.totals.indexOf(Math.max(...roundResult.totals))].name : null;
 
     return (
-      <div style={{ ...woodBackground, padding: "14px" }}>
-        <h2 style={{ textAlign: "center", fontSize: 52, margin: "10px 0 8px" }}>{winnerName} wins the round</h2>
+      <div style={{ ...woodBackground, padding: isPhone ? "10px" : "14px" }}>
+        <h2 style={{ textAlign: "center", fontSize: isPhone ? 34 : 52, margin: "10px 0 8px" }}>{winnerName} wins the round</h2>
 
         <div style={{ width: "min(520px, 96vw)", margin: "0 auto", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 6, overflow: "hidden" }}>
           {PLAYERS.map((player, idx) => (
@@ -1737,12 +2624,12 @@ export default function NertsGame() {
               key={player.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.7fr 1fr 1fr 1fr",
+                gridTemplateColumns: isPhone ? "1.5fr 0.9fr 0.9fr 1fr" : "1.7fr 1fr 1fr 1fr",
                 alignItems: "center",
-                gap: 8,
-                padding: "7px 10px",
+                gap: isPhone ? 5 : 8,
+                padding: isPhone ? "6px 8px" : "7px 10px",
                 background: idx % 2 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.14)",
-                fontSize: 20,
+                fontSize: isPhone ? 15 : 20,
               }}
             >
               <strong>{player.name}</strong>
@@ -1763,18 +2650,19 @@ export default function NertsGame() {
           Round Time: {formatDuration(roundResult.roundDurationMs)}
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center" }}>
+        <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: isPhone ? "wrap" : "nowrap" }}>
           <button
             type="button"
             onClick={startNextRound}
             style={{
               minWidth: 180,
               height: 50,
-              fontSize: 24,
+              fontSize: isPhone ? 20 : 24,
               color: "#fff",
               background: "rgba(108,157,226,0.9)",
               border: "none",
               cursor: "pointer",
+              touchAction: "manipulation",
             }}
           >
             {champion ? "New Match" : "Next Round"}
@@ -1785,11 +2673,12 @@ export default function NertsGame() {
             style={{
               minWidth: 130,
               height: 50,
-              fontSize: 24,
+              fontSize: isPhone ? 20 : 24,
               color: "#fff",
               background: "rgba(55,24,7,0.72)",
               border: "none",
               cursor: "pointer",
+              touchAction: "manipulation",
             }}
           >
             Menu
@@ -1813,47 +2702,71 @@ export default function NertsGame() {
 
   return (
     <div style={{ ...woodBackground, overflow: "hidden", paddingBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "rgba(0,0,0,0.22)", borderBottom: "1px solid rgba(255,255,255,0.22)" }}>
+      <div style={{ display: "flex", alignItems: isCompact ? "flex-start" : "center", justifyContent: "space-between", flexWrap: isCompact ? "wrap" : "nowrap", rowGap: isCompact ? 6 : 0, padding: isCompact ? "8px 8px 6px" : "8px 10px", background: "rgba(0,0,0,0.22)", borderBottom: "1px solid rgba(255,255,255,0.22)" }}>
         <button
           type="button"
           onClick={quitToMenu}
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: 22,
+            width: isCompact ? 38 : 42,
+            height: isCompact ? 38 : 42,
+            borderRadius: isCompact ? 19 : 22,
             border: "2px solid rgba(255,255,255,0.7)",
             background: "rgba(0,0,0,0.25)",
             color: "#fff",
-            fontSize: 24,
+            fontSize: isCompact ? 20 : 24,
             cursor: "pointer",
             flexShrink: 0,
+            touchAction: "manipulation",
           }}
         >
           ←
         </button>
 
-        <div style={{ textAlign: "center", lineHeight: 1.1 }}>
-          <div style={{ fontSize: 28, fontWeight: 500 }}>Round {roundNumber}</div>
-          <div style={{ fontSize: 14, opacity: 0.9 }}>Level: {LEVELS.find((l) => l.key === difficulty)?.label || "Medium"}</div>
-          <div style={{ fontSize: 12, opacity: 0.82 }}>Deck: {deckPreset.label}</div>
+        <div style={{ textAlign: "center", lineHeight: 1.1, flex: isCompact ? "1 1 auto" : "0 1 auto" }}>
+          <div style={{ fontSize: isCompact ? 22 : 28, fontWeight: 500 }}>Round {roundNumber}</div>
+          <div style={{ fontSize: isCompact ? 12 : 14, opacity: 0.9 }}>Level: {LEVELS.find((l) => l.key === difficulty)?.label || "Medium"}</div>
+          <div style={{ fontSize: isCompact ? 11 : 12, opacity: 0.82 }}>Deck: {deckPreset.label}</div>
         </div>
 
-        <div style={{ textAlign: "right", fontSize: 14, minWidth: 120 }}>
+        <div style={{ textAlign: isCompact ? "left" : "right", fontSize: isCompact ? 12 : 14, minWidth: isCompact ? "100%" : 120 }}>
           <div>You: {scores[0]}</div>
           <div style={{ opacity: 0.9 }}>Lead: {Math.max(...scores)}</div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginTop: 4 }}>
+          <div style={{ display: "flex", justifyContent: isCompact ? "flex-start" : "flex-end", gap: 4, marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (isPaused) {
+                  resumeRound();
+                  return;
+                }
+                pauseRound("Paused");
+              }}
+              style={{
+                border: "1px solid rgba(255,255,255,0.45)",
+                background: isPaused ? "rgba(31,130,89,0.9)" : "rgba(55,24,7,0.72)",
+                color: "#fff",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
+                borderRadius: 4,
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              {isPaused ? "Resume" : "Pause"}
+            </button>
             <button
               type="button"
               onClick={undoLastMove}
-              disabled={!undoSnapshot}
+              disabled={!undoSnapshot || isPaused}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: undoSnapshot ? "rgba(55,24,7,0.72)" : "rgba(0,0,0,0.24)",
+                background: undoSnapshot && !isPaused ? "rgba(55,24,7,0.72)" : "rgba(0,0,0,0.24)",
                 color: "#fff",
-                fontSize: 11,
-                padding: "2px 6px",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
                 borderRadius: 4,
-                cursor: undoSnapshot ? "pointer" : "default",
+                cursor: undoSnapshot && !isPaused ? "pointer" : "default",
+                touchAction: "manipulation",
               }}
             >
               Undo
@@ -1861,14 +2774,16 @@ export default function NertsGame() {
             <button
               type="button"
               onClick={applyHint}
+              disabled={isPaused}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: "rgba(55,24,7,0.72)",
+                background: isPaused ? "rgba(0,0,0,0.24)" : "rgba(55,24,7,0.72)",
                 color: "#fff",
-                fontSize: 11,
-                padding: "2px 6px",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
                 borderRadius: 4,
-                cursor: "pointer",
+                cursor: isPaused ? "default" : "pointer",
+                touchAction: "manipulation",
               }}
             >
               Hint
@@ -1876,32 +2791,84 @@ export default function NertsGame() {
             <button
               type="button"
               onClick={autoPlayFoundations}
+              disabled={isPaused}
               style={{
                 border: "1px solid rgba(255,255,255,0.45)",
-                background: "rgba(108,157,226,0.85)",
+                background: isPaused ? "rgba(0,0,0,0.24)" : "rgba(108,157,226,0.85)",
                 color: "#fff",
-                fontSize: 11,
-                padding: "2px 6px",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
                 borderRadius: 4,
-                cursor: "pointer",
+                cursor: isPaused ? "default" : "pointer",
+                touchAction: "manipulation",
               }}
             >
               Auto
             </button>
           </div>
+          <div style={{ display: "flex", justifyContent: isCompact ? "flex-start" : "flex-end", gap: 4, marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={toggleSfx}
+              style={{
+                border: "1px solid rgba(255,255,255,0.45)",
+                background: audioSettings.sfxEnabled ? "rgba(108,157,226,0.9)" : "rgba(0,0,0,0.24)",
+                color: "#fff",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
+                borderRadius: 4,
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              SFX {audioSettings.sfxEnabled ? "ON" : "OFF"}
+            </button>
+            <button
+              type="button"
+              onClick={toggleMusic}
+              style={{
+                border: "1px solid rgba(255,255,255,0.45)",
+                background: audioSettings.musicEnabled ? "rgba(108,157,226,0.9)" : "rgba(0,0,0,0.24)",
+                color: "#fff",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
+                borderRadius: 4,
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              Music {audioSettings.musicEnabled ? "ON" : "OFF"}
+            </button>
+            <button
+              type="button"
+              onClick={toggleHaptics}
+              style={{
+                border: "1px solid rgba(255,255,255,0.45)",
+                background: audioSettings.hapticsEnabled ? "rgba(108,157,226,0.9)" : "rgba(0,0,0,0.24)",
+                color: "#fff",
+                fontSize: isCompact ? 10 : 11,
+                padding: isCompact ? "2px 5px" : "2px 6px",
+                borderRadius: 4,
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              Haptic {audioSettings.hapticsEnabled ? "ON" : "OFF"}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "8px 10px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: isCompact ? 5 : 8, padding: isCompact ? "6px 6px 0" : "8px 10px 0" }}>
         {aiPlayers.map((ai, idx) => {
           const rotate = idx === 0 ? -18 : idx === 1 ? 0 : 18;
           return (
             <div key={ai.id} style={{ textAlign: "center", width: "33%" }}>
-              <div style={{ fontSize: 12, marginBottom: 4 }}>{PLAYERS[ai.id].name}</div>
+              <div style={{ fontSize: isCompact ? 11 : 12, marginBottom: 4 }}>{PLAYERS[ai.id].name}</div>
               <div style={{ display: "flex", justifyContent: "center" }}>
-                <PlayingCard card={topOppCards[idx]} small rotate={rotate} />
+                <PlayingCard card={topOppCards[idx]} small compact={isCompact} rotate={rotate} />
               </div>
-              <div style={{ fontSize: 12, marginTop: 2 }}>{ai.nertsPile.length}</div>
+              <div style={{ fontSize: isCompact ? 11 : 12, marginTop: 2 }}>{ai.nertsPile.length}</div>
             </div>
           );
         })}
@@ -1910,6 +2877,7 @@ export default function NertsGame() {
       <FoundationGrid
         foundations={board.foundations}
         suits={deckPreset.suits}
+        compact={isCompact}
         selectedCard={selectedCard}
         onCellClick={moveSelectedToFoundation}
         onCellDrop={onFoundationDrop}
@@ -1917,14 +2885,13 @@ export default function NertsGame() {
         activeSuit={dragOverSuit}
       />
 
-      <div style={{ width: "min(760px, 98vw)", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 7, padding: "0 4px" }}>
-        <div style={{ width: 46, textAlign: "center", fontSize: 32 }}>{human.nertsPile.length}</div>
+      <div style={{ width: "min(760px, 98vw)", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: isCompact ? 4 : 7, padding: "0 4px" }}>
+        <div style={{ width: isCompact ? 34 : 46, textAlign: "center", fontSize: isCompact ? 24 : 32 }}>{human.nertsPile.length}</div>
 
         {human.work.map((pile, idx) => {
-          const visibleCount = 7;
-          const start = Math.max(0, pile.length - visibleCount);
+          const start = Math.max(0, pile.length - workVisibleCount);
           const visible = pile.slice(start);
-          const stackHeight = 104 + Math.max(0, visible.length - 1) * 20;
+          const stackHeight = mainCardHeight + Math.max(0, visible.length - 1) * workFanOffset;
           const selectedInPile = selected?.source === "work" && selected?.workIndex === idx;
           const selectedStart = selectedInPile && Number.isInteger(selected?.stackStart) ? selected.stackStart : -1;
 
@@ -1940,23 +2907,24 @@ export default function NertsGame() {
               }}
               style={{
                 position: "relative",
-                width: 74,
-                minHeight: 120,
+                width: mainCardWidth,
+                minHeight: mainCardHeight + 16,
                 borderRadius: 6,
                 boxShadow: dragOverWork === idx ? "0 0 0 2px rgba(125,186,255,0.8)" : "none",
                 background: dragOverWork === idx ? "rgba(125,186,255,0.15)" : "transparent",
               }}
             >
               {pile.length ? (
-                <div style={{ position: "relative", width: 74, height: stackHeight }}>
+                <div style={{ position: "relative", width: mainCardWidth, height: stackHeight }}>
                   {visible.map((card, vIdx) => {
                     const absoluteIndex = start + vIdx;
                     const isCardSelected = selectedInPile && absoluteIndex >= selectedStart;
                     return (
-                      <div key={card.id} style={{ position: "absolute", left: 0, top: vIdx * 20, zIndex: vIdx + 1 }}>
+                      <div key={card.id} style={{ position: "absolute", left: 0, top: vIdx * workFanOffset, zIndex: vIdx + 1 }}>
                         <PlayingCard
                           card={card}
                           selected={isCardSelected}
+                          compact={isCompact}
                           draggable
                           onDragStart={startDragFrom("work", idx, absoluteIndex)}
                           onDragEnd={endDrag}
@@ -1976,6 +2944,7 @@ export default function NertsGame() {
               ) : (
                 <PlayingCard
                   card={null}
+                  compact={isCompact}
                   onClick={() => {
                     if (selected) moveSelectedToWork(idx);
                   }}
@@ -1992,7 +2961,7 @@ export default function NertsGame() {
                     padding: "0 4px",
                     borderRadius: 9,
                     background: "rgba(0,0,0,0.6)",
-                    fontSize: 12,
+                    fontSize: isCompact ? 11 : 12,
                     display: "grid",
                     placeItems: "center",
                   }}
@@ -2005,16 +2974,17 @@ export default function NertsGame() {
         })}
       </div>
 
-      <div style={{ width: "min(700px, 96vw)", margin: "12px auto 0", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+      <div style={{ width: "min(700px, 96vw)", margin: "12px auto 0", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: isCompact ? 6 : 12 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: isCompact ? 6 : 8 }}>
           <div>
-            <PlayingCard faceDown onClick={drawFromStock} />
-            <div style={{ textAlign: "center", fontSize: 12, marginTop: 2 }}>{human.stock.length}</div>
+            <PlayingCard faceDown compact={isCompact} onClick={drawFromStock} />
+            <div style={{ textAlign: "center", fontSize: isCompact ? 11 : 12, marginTop: 2 }}>{human.stock.length}</div>
           </div>
           <div>
             <PlayingCard
               card={myWasteTop}
               selected={selected?.source === "waste"}
+              compact={isCompact}
               draggable={Boolean(myWasteTop)}
               onDragStart={startDragFrom("waste")}
               onDragEnd={endDrag}
@@ -2028,7 +2998,7 @@ export default function NertsGame() {
                 selectFromSource("waste");
               }}
             />
-            <div style={{ textAlign: "center", fontSize: 12, marginTop: 2 }}>{human.waste.length}</div>
+            <div style={{ textAlign: "center", fontSize: isCompact ? 11 : 12, marginTop: 2 }}>{human.waste.length}</div>
           </div>
         </div>
 
@@ -2036,6 +3006,7 @@ export default function NertsGame() {
           <PlayingCard
             card={myNertsTop}
             selected={selected?.source === "nerts"}
+            compact={isCompact}
             draggable={Boolean(myNertsTop)}
             onDragStart={startDragFrom("nerts")}
             onDragEnd={endDrag}
@@ -2049,15 +3020,61 @@ export default function NertsGame() {
               selectFromSource("nerts");
             }}
           />
-          <div style={{ fontSize: 13, marginTop: 3 }}>NERTS</div>
+          <div style={{ fontSize: isCompact ? 12 : 13, marginTop: 3 }}>NERTS</div>
         </div>
       </div>
 
-      <div style={{ marginTop: 10, minHeight: 24, textAlign: "center", fontSize: 16 }}>
+      <div style={{ marginTop: 10, minHeight: 24, textAlign: "center", fontSize: isCompact ? 14 : 16 }}>
         {selected
           ? `Selected: ${labelForSource(selected.source, selected.workIndex)}${selectedStackCount > 1 ? ` (${selectedStackCount} cards)` : ""}`
           : message || ""}
       </div>
+
+      {isPaused && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.42)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 180,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: "min(320px, 90vw)",
+              background: "rgba(34,14,4,0.92)",
+              border: "1px solid rgba(255,255,255,0.26)",
+              borderRadius: 8,
+              padding: 14,
+              textAlign: "center",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: isPhone ? 26 : 30, lineHeight: 1 }}>Paused</div>
+            <div style={{ fontSize: isPhone ? 13 : 14, opacity: 0.9 }}>Game state is saved locally.</div>
+            <button
+              type="button"
+              onClick={resumeRound}
+              style={{
+                width: "100%",
+                height: 44,
+                fontSize: isPhone ? 22 : 24,
+                color: "#fff",
+                background: "rgba(31,130,89,0.9)",
+                border: "none",
+                cursor: "pointer",
+                touchAction: "manipulation",
+              }}
+            >
+              Resume
+            </button>
+          </div>
+        </div>
+      )}
 
       {touchDrag && (
         <div
@@ -2074,6 +3091,7 @@ export default function NertsGame() {
           <PlayingCard
             card={touchDragCard}
             selected
+            compact={isCompact}
           />
         </div>
       )}
