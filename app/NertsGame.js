@@ -424,7 +424,7 @@ function PlayingCard({
 }) {
   const width = small ? (compact ? 44 : 54) : (compact ? 58 : 74);
   const height = small ? (compact ? 62 : 76) : (compact ? 84 : 104);
-  const cornerRadius = compact ? 3 : 4;
+  const cornerRadius = compact ? 7 : 10;
 
   if (faceDown) {
     return (
@@ -438,13 +438,13 @@ function PlayingCard({
         style={{
           width,
           height,
-          border: "none",
+          border: "1px solid rgba(255,255,255,0.25)",
           borderRadius: cornerRadius,
           cursor: draggable ? "grab" : onClick ? "pointer" : "default",
           background:
-            "linear-gradient(145deg, #7fa68f 0%, #5f816e 45%, #466d5a 100%), repeating-linear-gradient(45deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22) 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 6px)",
-          borderBottom: "3px solid rgba(0,0,0,0.2)",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+            "radial-gradient(120px 80px at 85% 0%, rgba(101,189,255,0.26), transparent 55%), linear-gradient(155deg, #2a3f62 0%, #1f3252 52%, #172743 100%)",
+          boxShadow:
+            "0 8px 20px rgba(1,7,20,0.38), inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.28)",
           transform: `rotate(${rotate}deg)`,
           padding: 0,
           touchAction: draggable ? "none" : "manipulation",
@@ -465,12 +465,13 @@ function PlayingCard({
         style={{
           width,
           height,
-          border: "1px solid rgba(255,255,255,0.25)",
-          background: "rgba(255,255,255,0.08)",
+          border: "1px dashed rgba(193,221,255,0.45)",
+          background: "rgba(24,40,64,0.38)",
           borderRadius: cornerRadius,
           cursor: draggable ? "grab" : onClick ? "pointer" : "default",
-          color: "rgba(255,255,255,0.4)",
+          color: "rgba(204,226,255,0.62)",
           fontSize: compact ? 20 : 24,
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
           touchAction: draggable ? "none" : "manipulation",
         }}
       >
@@ -490,25 +491,29 @@ function PlayingCard({
       style={{
         width,
         height,
-        border: selected ? "2px solid #7ab3ff" : "1px solid rgba(0,0,0,0.2)",
+        border: selected ? "2px solid #8ec8ff" : "1px solid rgba(44,62,86,0.4)",
         borderRadius: cornerRadius,
         cursor: draggable ? "grab" : onClick ? "pointer" : "default",
-        background: "#ffffff",
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,248,255,0.98) 52%, rgba(236,243,253,0.98) 100%)",
         color: card.inkColor || (card.color === "red" ? "#cc1e1e" : "#111111"),
-        boxShadow: selected ? "0 0 0 3px rgba(122,179,255,0.25)" : "0 1px 6px rgba(0,0,0,0.35)",
+        boxShadow: selected
+          ? "0 0 0 3px rgba(142,200,255,0.3), 0 9px 20px rgba(4,11,24,0.32)"
+          : "0 7px 18px rgba(4,11,24,0.26), inset 0 1px 0 rgba(255,255,255,0.66)",
         transform: `rotate(${rotate}deg)`,
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
         padding: compact ? "3px 4px" : "4px 5px",
+        transition: "box-shadow 120ms ease, transform 120ms ease",
         touchAction: draggable ? "none" : "manipulation",
       }}
     >
-      <div style={{ textAlign: "left", lineHeight: 1 }}>
+      <div style={{ textAlign: "left", lineHeight: 1, letterSpacing: small ? 0 : 0.1 }}>
         <div style={{ fontSize: small ? (compact ? 12 : 14) : compact ? 15 : 18, fontWeight: 700 }}>{card.rank}</div>
-        <div style={{ fontSize: small ? (compact ? 10 : 12) : compact ? 13 : 16, marginTop: -1 }}>{card.symbol}</div>
+        <div style={{ fontSize: small ? (compact ? 10 : 12) : compact ? 13 : 16, marginTop: -1, opacity: 0.92 }}>{card.symbol}</div>
       </div>
-      <div style={{ fontSize: small ? (compact ? 14 : 18) : compact ? 22 : 28, opacity: 0.75 }}>{card.symbol}</div>
+      <div style={{ fontSize: small ? (compact ? 14 : 18) : compact ? 22 : 28, opacity: 0.8 }}>{card.symbol}</div>
     </button>
   );
 }
@@ -601,8 +606,8 @@ const woodBackground = {
   color: "#ffffff",
   fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif",
   backgroundImage:
-    "linear-gradient(rgba(35,14,3,0.18), rgba(35,14,3,0.18)), repeating-linear-gradient(90deg, #8c3f0d 0px, #9d4811 24px, #8b3e0d 48px)",
-  backgroundColor: "#8d3f0f",
+    "radial-gradient(1100px 600px at 12% -8%, rgba(82, 172, 255, 0.28), transparent 58%), radial-gradient(900px 540px at 88% -16%, rgba(37, 206, 178, 0.2), transparent 56%), linear-gradient(160deg, #0b1220 0%, #121d33 46%, #1a2b42 100%)",
+  backgroundColor: "#0b1220",
 };
 
 export default function NertsGame() {
